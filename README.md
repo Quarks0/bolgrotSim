@@ -12,10 +12,10 @@ This basic js app is meant to be a simulator for the Bolgrot Encounter as part o
 ## Current tasks
 - [] Render the full grid
 - [] Render the player + Bolgrot
-- [] Add the implementation of turns (ready would be nice for re-use but we'll see how far the rabbit hold we go)
+- [] Add the implementation of turns (ready would be nice for re-use but we'll see how far the rabbit hole we go)
 - [] Add logic for attracting
 - [] Add the 3 movement spells + AP
-- [] Add glyphs for spawning adds. This also involves looking at various screenshots for spawn locations as they seem pseudo random
+- [] Add glyphs for spawning adds. This also involves looking at various screenshots for spawn locations as they seem pseudo random. Note: 36 spawns over 6 turns
 - [] Add flames (adds)
 - [] Add logic for moving onto add to remove
 - [] Add logic for adds attracting upon spell cast, Spell #3
