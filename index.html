@@ -1,0 +1,49 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Dofus Isometric Combat Emulator (Native Canvas)</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    
+    <style>
+        /* Using custom CSS for the centered layout */
+        body {
+            font-family: 'Inter', sans-serif;
+            background-color: #0d1117;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            min-height: 100vh;
+            margin: 0;
+            flex-direction: column;
+            color: #d1d5db; /* Default text color */
+        }
+        #app-container {
+            position: relative;
+            box-shadow: 0 10px 30px rgba(0, 0, 0, 0.7);
+            border-radius: 12px;
+            overflow: hidden;
+            border: 4px solid #1f2937;
+        }
+        #gameCanvas {
+            /* Set fixed dimensions and style the canvas */
+            background-color: #333d45;
+            cursor: pointer;
+            display: block;
+        }
+    </style>
+</head>
+<body class="p-4">
+
+    <div class="text-center mb-6">
+        <h1 class="text-3xl font-bold text-yellow-300">Bolgrot Combat Map Emulator (Native Canvas)</h1>
+        <p class="text-gray-400">Click to move the hero (blue). Adjacent tiles show 'Cast Range' (light blue).</p>
+    </div>
+
+    <div id="app-container">
+        <!-- The core drawing surface -->
+        <canvas id="gameCanvas"></canvas>
+    </div>
+</body>
+</html>
