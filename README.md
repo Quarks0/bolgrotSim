@@ -38,12 +38,16 @@ This basic js app is meant to be a simulator for the Bolgrot Encounter as part o
     - We do not lose landing next to an enemy while triggering elimination
     - Enemy colliding into another enemy causes loss
      - Cell highlighting on loss in the above scenario triggers proper highlighting
+- [ ] 2-2 has a scenario where enemies merge when they should. Should either be a loss (unlikely) or if diagonal is taken we try a single unit attraction. Will need to explore this edge case
 
 ## Edge case testing
 - Looking at a video, Double Leap has a cross AoE rather than square. Can I leap into a diagonal from an enemy without losing?
 - Does Immobilism have an AP cost?
 
 ### Future goals
+- [ ] Fight overview (Goal, mechanics)
+- [ ] General tips (eg minimizing Immobilism usage, positioning set ups, links to other videos?)
+- [ ] Spell tool tips?
 - [ ] Menu/nav for drills vs sim
 - [ ] Simulation support
   - [ ] Create full grid
