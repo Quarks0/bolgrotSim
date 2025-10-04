@@ -30,7 +30,7 @@ This basic js app is meant to be a simulator for the Bolgrot Encounter as part o
 - [x] Add Immobilism
 
 ## Known bugs
-- 2 flame scenarios introduced but not validated
+- 2 flame scenarios introduced but not validated [Possibly fixed]
   - 2-1 spawning only opposite each other
   - 2-3 spawning 2-4 diagonals away, not the diagonals 2 and 4 diagonals away
   - 2-2 second enemy not purely adjacent

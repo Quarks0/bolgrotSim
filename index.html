@@ -349,10 +349,10 @@
             initialAp: 10,
             initialCharges: SPELL_DATA[2].maxCharges,
             turn: 1,
-            // 2 enemies, spawned on the immediate diagonals (+/-1, +/-1)
+            // 2 enemies, spawned randomly on any immediate diagonals (+/-1, +/-1)
             enemyConfig: [
-                { type: 'relative', dx: 1, dy: 1 },
-                { type: 'relative', dx: -1, dy: -1 }
+                { type: 'random', distance: [1], mode: 'diagonal' },
+                { type: 'random', distance: [1], mode: 'diagonal' }
             ]
         };
 
@@ -378,10 +378,10 @@
             initialAp: 10,
             initialCharges: SPELL_DATA[2].maxCharges,
             turn: 1,
-            // 2 enemies aligned on the same diagonal (2 squares and 4 squares from the player)
+            // 2 enemies aligned on the same diagonal (1st and 2nd diagonals from the player)
             enemyConfig: [
-                { type: 'relative', dx: 2, dy: 2 },
-                { type: 'relative', dx: 4, dy: 4 }
+                { type: 'random', distance: [1], mode: 'diagonal' },
+                { type: 'aligned_diagonal', distance: [2], mode: 'diagonal' }
             ]
         };
 
@@ -572,7 +572,13 @@
                         if (distances.includes(absDx + absDy)) {
                             isValid = true;
                         }
-                    } 
+                    } else if (mode === 'diagonal') {
+                        // For diagonal mode, only allow positions where dx and dy are both non-zero
+                        // and their absolute values are equal (perfect diagonals)
+                        if (dx !== 0 && dy !== 0 && absDx === absDy && distances.includes(absDx)) {
+                            isValid = true;
+                        }
+                    }
                     // Add other modes if needed (e.g., 'chebyshev' for max(dx, dy))
 
                     if (isValid) {
@@ -614,23 +620,49 @@
                 } else if (conf.type === 'adjacent_to_prev' && enemies.length > 0) {
                     const prevEnemyPos = enemies[enemies.length - 1].position;
                     const adjacentCandidates = [];
-                    for (let dx = -1; dx <= 1; dx++) {
-                        for (let dy = -1; dy <= 1; dy++) {
-                            if (dx === 0 && dy === 0) continue;
-                            const x = prevEnemyPos.x + dx;
-                            const y = prevEnemyPos.y + dy;
-                            
-                            // Check validity and if tile is already occupied or is the hero's position
-                            if (isTileValid(x, y) && 
-                                !enemies.some(e => e.position.x === x && e.position.y === y) &&
-                                !(x === heroPos.x && y === heroPos.y)) {
-                                adjacentCandidates.push({ x, y });
-                            }
+                    // Only cardinal directions (no diagonals)
+                    const cardinalDirections = [
+                        { dx: 1, dy: 0 }, { dx: -1, dy: 0 }, 
+                        { dx: 0, dy: 1 }, { dx: 0, dy: -1 }
+                    ];
+                    
+                    for (const { dx, dy } of cardinalDirections) {
+                        const x = prevEnemyPos.x + dx;
+                        const y = prevEnemyPos.y + dy;
+                        
+                        // Check validity and if tile is already occupied or is the hero's position
+                        if (isTileValid(x, y) && 
+                            !enemies.some(e => e.position.x === x && e.position.y === y) &&
+                            !(x === heroPos.x && y === heroPos.y)) {
+                            adjacentCandidates.push({ x, y });
                         }
                     }
                     if (adjacentCandidates.length > 0) {
                         const randomIndex = Math.floor(Math.random() * adjacentCandidates.length);
                         spawnPos = adjacentCandidates[randomIndex];
+                    }
+                } else if (conf.type === 'aligned_diagonal' && enemies.length > 0) {
+                    const prevEnemyPos = enemies[enemies.length - 1].position;
+                    // Calculate the diagonal direction from hero to previous enemy
+                    const dxFromHero = prevEnemyPos.x - heroPos.x;
+                    const dyFromHero = prevEnemyPos.y - heroPos.y;
+                    
+                    // Normalize to get the diagonal direction (should be 1 or -1 for both x and y)
+                    const dirX = Math.sign(dxFromHero);
+                    const dirY = Math.sign(dyFromHero);
+                    
+                    // Calculate the aligned position at the specified distance
+                    const potentialSpawns = getSpawnLocations(heroPos, conf.distance, conf.mode);
+                    const alignedCandidates = potentialSpawns.filter(pos => {
+                        const dx = pos.x - heroPos.x;
+                        const dy = pos.y - heroPos.y;
+                        // Check if this position is in the same diagonal direction as the previous enemy
+                        return Math.sign(dx) === dirX && Math.sign(dy) === dirY;
+                    });
+                    
+                    if (alignedCandidates.length > 0) {
+                        const randomIndex = Math.floor(Math.random() * alignedCandidates.length);
+                        spawnPos = alignedCandidates[randomIndex];
                     }
                 }
 
