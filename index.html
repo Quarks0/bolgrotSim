@@ -5,32 +5,151 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Bolgrot's Spirit Simulator</title>
     <script src="https://cdn.tailwindcss.com"></script>
-    
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600,700,800&display=swap" rel="stylesheet">
     <style>
         /* Using custom CSS for the centered layout */
         body {
             font-family: 'Inter', sans-serif;
             background-color: #0d1117;
             display: flex;
-            justify-content: center;
+            justify-content: flex-start;
             align-items: center;
             min-height: 100vh;
             margin: 0;
+            padding: 2rem;
             flex-direction: column;
-            color: #d1d5db; /* Default text color */
+            color: #d1d5db;
+            width: 100%;
+            overflow-x: auto;
         }
         #app-container {
-            position: relative;
+            position: relative; /* CRITICAL: Allows absolute positioning of children */
             box-shadow: 0 10px 30px rgba(0, 0, 0, 0.7);
             border-radius: 12px;
-            overflow: hidden;
+            display: flex; 
+            flex-direction: column;
+            overflow: hidden; 
             border: 4px solid #1f2937;
+            background-color: #1f2937; 
         }
         #gameCanvas {
-            /* Set fixed dimensions and style the canvas */
             background-color: #333d45;
-            cursor: pointer;
+            cursor: default; 
             display: block;
+        }
+        /* Style for the spell button to make it look like a tactical tile/icon */
+        .spell-container {
+            position: relative;
+        }
+        .spell-icon, .end-turn-button {
+            width: 60px;
+            height: 60px;
+            display: flex;
+            align-items: center; 
+            justify-content: center; 
+            text-align: center; 
+            font-size: 14px; 
+            font-weight: bold;
+            border-radius: 8px;
+            border: 3px solid #6b7280; 
+            cursor: pointer;
+            transition: all 0.1s ease;
+            box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.4);
+            user-select: none;
+            line-height: 1.2; 
+            white-space: normal; /* Added for text wrap */
+            padding: 2px; /* Added padding to prevent crowding */
+        }
+        /* Larger End Turn Button */
+        .end-turn-button {
+            width: 80px;
+            height: 60px;
+            font-size: 16px;
+            background-color: #16a34a; 
+            color: #fff;
+        }
+        .spell-icon:hover:not(.spell-disabled), 
+        .end-turn-button:hover:not(.spell-disabled) {
+            box-shadow: 0 0 10px rgba(71, 182, 255, 0.8);
+            transform: scale(1.05);
+        }
+        .spell-icon-active {
+            border-color: #fcd34d; 
+            box-shadow: 0 0 15px rgba(252, 211, 77, 0.9);
+            transform: scale(1.05);
+        }
+        .spell-disabled {
+            cursor: not-allowed;
+            opacity: 0.5;
+            filter: grayscale(80%);
+            box-shadow: none;
+        }
+        .charge-counter {
+            position: absolute;
+            bottom: -5px;
+            right: -5px;
+            background-color: #111827; 
+            color: #fcd34d; 
+            font-size: 14px;
+            font-weight: bold;
+            padding: 2px 6px;
+            border-radius: 9999px; 
+            border: 2px solid #374151; 
+            line-height: 1;
+        }
+        .turn-counter {
+            background-color: #1f2937;
+            padding: 4px 10px;
+            border-radius: 6px;
+            font-size: 1rem;
+            color: #d1d5db;
+        }
+        /* Style for the game banner (non-shifting, absolute position inside container) */
+        #game-banner {
+            position: absolute; /* Prevents layout shift */
+            top: 16px; /* Space from the top */
+            left: 50%;
+            transform: translateX(-50%);
+            z-index: 10;
+            padding: 12px 16px;
+            margin: 0; 
+            border-radius: 8px;
+            text-align: center;
+            transition: opacity 0.3s ease;
+            max-width: 90%;
+            width: fit-content;
+        }
+        #game-banner.hidden {
+            display: none !important;
+        }
+        .banner-win {
+            background-color: rgba(22, 163, 74, 0.95); /* Green */
+            border: 2px solid #16a34a;
+        }
+        /* Adjusted loss banner color to be darker and slightly more translucent */
+        .banner-loss {
+            background-color: rgba(128, 23, 23, 0.9); /* Deep Crimson, 90% opaque */
+            border: 2px solid #a83232;
+        }
+        .banner-title {
+            font-size: 2rem;
+            font-weight: 800;
+            color: #fff;
+            margin-bottom: 4px;
+        }
+        .banner-message {
+            font-size: 1rem;
+            color: #ddd;
+            margin-bottom: 12px;
+        }
+        .retry-button {
+            padding: 8px 16px;
+            font-size: 16px;
+            font-weight: bold;
+            border-radius: 6px;
+            transition: background-color 0.2s;
+            background-color: #fcd34d; /* Yellow-300 */
+            color: #1f2937;
         }
     </style>
 </head>
@@ -38,16 +157,1216 @@
 
     <div class="text-center mb-6">
         <h1 class="text-3xl font-bold text-yellow-300">Bolgrot's Spirit Simulator</h1>
-        <p class="text-gray-400">Click to move the hero (blue). Adjacent tiles show 'Cast Range' (light blue).</p>
+        <p class="text-gray-400">Manage your AP, HP, and spell charges to eliminate enemies.</p>
+    </div>
+    
+    <!-- Drill Control Buttons -->
+    <div id="drill-controls" class="flex justify-center space-x-2 mb-4 w-full flex-wrap">
+        <!-- Scenario 1-X Buttons -->
+        <button id="scenario1-btn" onclick="resetGame(SCENARIO_1_1_DATA)" 
+            class="w-16 h-12 font-bold text-white bg-blue-600 hover:bg-blue-700 rounded-lg shadow-md transition duration-150 ease-in-out">
+            1-1
+        </button>
+        <button id="scenario2-btn" onclick="resetGame(SCENARIO_1_2_DATA)" 
+            class="w-16 h-12 font-bold text-white bg-purple-600 hover:bg-purple-700 rounded-lg shadow-md transition duration-150 ease-in-out">
+            1-2
+        </button>
+        <button id="scenario3-btn" onclick="resetGame(SCENARIO_1_3_DATA)" 
+            class="w-16 h-12 font-bold text-white bg-red-600 hover:bg-red-700 rounded-lg shadow-md transition duration-150 ease-in-out">
+            1-3
+        </button>
+
+        <div class="w-2 h-0"></div> <!-- Small separator -->
+        
+        <!-- Scenario 2-X Buttons -->
+        <button id="scenario2-1-btn" onclick="resetGame(SCENARIO_2_1_DATA)" 
+            class="w-16 h-12 font-bold text-white bg-green-600 hover:bg-green-700 rounded-lg shadow-md transition duration-150 ease-in-out">
+            2-1
+        </button>
+        <button id="scenario2-2-btn" onclick="resetGame(SCENARIO_2_2_DATA)" 
+            class="w-16 h-12 font-bold text-white bg-indigo-600 hover:bg-indigo-700 rounded-lg shadow-md transition duration-150 ease-in-out">
+            2-2
+        </button>
+        <button id="scenario2-3-btn" onclick="resetGame(SCENARIO_2_3_DATA)" 
+            class="w-16 h-12 font-bold text-white bg-pink-600 hover:bg-pink-700 rounded-lg shadow-md transition duration-150 ease-in-out">
+            2-3
+        </button>
     </div>
 
     <div id="app-container">
+        
+        <!-- Victory/Defeat Banner -->
+        <div id="game-banner" class="hidden">
+            <div class="text-center">
+                <h2 id="banner-title" class="banner-title drop-shadow-lg"></h2>
+                <p id="banner-message" class="banner-message"></p>
+                <button id="retry-button" class="retry-button hidden" 
+                    onclick="resetGame(gameState.currentScenario)">
+                    Retry
+                </button>
+            </div>
+        </div>
+
         <!-- The core drawing surface -->
         <canvas id="gameCanvas"></canvas>
-	<script src="root.js"></script>
+        
+        <!-- Status Bar -->
+        <div id="status-bar" class="flex justify-center space-x-12 text-xl font-semibold p-2 bg-gray-700 w-full">
+            <span id="turn-counter" class="turn-counter">Turn: 1</span>
+            <span id="hp-counter" class="text-green-400">HP: 20/20</span>
+            <span id="ap-counter" class="text-yellow-300">AP: 10/10</span>
+        </div>
+
+        <!-- Spell Bar UI -->
+        <div id="spell-bar" class="flex justify-center items-center space-x-6 py-3 bg-gray-800 w-full border-t-2 border-gray-700">
+            
+            <!-- Spell 1: Astral Leap (Yellow/Orange) -->
+            <div class="spell-container">
+                <div id="spell1" class="spell-icon bg-yellow-600 text-white select-none" onclick="activateSpell(1)">
+                    Astral Leap
+                </div>
+            </div>
+
+            <!-- Spell 2: Double Leap (Grey) -->
+            <div class="spell-container">
+                <div id="spell2" class="spell-icon bg-slate-600 text-white select-none" onclick="activateSpell(2)">
+                    Double Leap
+                </div>
+                <!-- Charge Counter for Spell 2 -->
+                <span id="spell2-charges" class="charge-counter">2</span>
+            </div>
+            
+            <!-- Spell 3: Immobilism (Dark Grey) -->
+            <div class="spell-container">
+                <div id="spell3" class="spell-icon bg-slate-700 text-white select-none" onclick="activateSpell(3)">
+                    Immobilism
+                </div>
+            </div>
+
+            <div class="w-8"></div> <!-- Gap between spells and End Turn -->
+
+            <!-- End Turn Button (Lush Green, Centered Text) -->
+            <div id="end-turn" class="end-turn-button select-none" onclick="endTurn()">
+                END TURN
+            </div>
+        </div>
     </div>
-    <footer>
-	Note: This is a fan made project and NOT affiliated with Ankama Games or DOFUS.
+
+    <footer class="mt-4 text-xs text-gray-500 max-w-lg text-center">
+    Note: This is a non-commercial fan project exploring the AP/MP system.
     </footer>
+
+    <script>
+        // --- Utility Functions ---
+
+        /**
+         * Debounce function to limit how often a function is called.
+         */
+        function debounce(func, wait) {
+            let timeout;
+            return function(...args) {
+                const context = this;
+                clearTimeout(timeout);
+                timeout = setTimeout(() => func.apply(context, args), wait);
+            };
+        }
+
+        // --- Configuration ---
+        const GRID_WIDTH = 10;
+        const GRID_HEIGHT = 10;
+        const CANVAS_WIDTH = 1400;
+        const CANVAS_HEIGHT = 700;
+        
+        // Canvas and Context setup
+        const CANVAS = document.getElementById('gameCanvas');
+        CANVAS.width = CANVAS_WIDTH;
+        CANVAS.height = CANVAS_HEIGHT;
+        const CTX = CANVAS.getContext('2d');
+
+        // Grid and Tile Dimensions
+        const TILE_WIDTH = 120;
+        const TILE_HEIGHT = 60;
+        
+        // Offset to center the grid on the canvas
+        const X_OFFSET = CANVAS_WIDTH / 2;
+        const Y_OFFSET = 100;
+
+        // Spell definitions
+        const SPELL_DATA = {
+            1: { costAP: 1, costHP: 1, range: 1, maxCharges: Infinity, name: 'Astral Leap', type: 'move' },
+            2: { costAP: 2, costHP: 1, range: 2, maxCharges: 2, name: 'Double Leap', type: 'move' },
+            3: { costAP: 0, costHP: 5, range: 2, maxCharges: Infinity, name: 'Immobilism', type: 'attraction' }
+        };
+
+        // Grid State Definitions:
+        const CASTABLE_STATES = [1, 3];
+        const BASE_HP = 20; 
+        const HP_REFUND_ON_KILL = 1;
+
+        // --- Scenario Data ---
+        // Single Enemy Scenarios (1-X)
+        const SCENARIO_1_1_DATA = {
+            id: '1-1',
+            heroPosition: { x: 5, y: 5 },
+            initialHp: BASE_HP,
+            initialAp: 10,
+            initialCharges: SPELL_DATA[2].maxCharges,
+            turn: 1,
+            enemyConfig: [
+                { type: 'random', distance: [3], mode: 'manhattan' }
+            ]
+        };
+
+        const SCENARIO_1_2_DATA = {
+            id: '1-2',
+            heroPosition: { x: 5, y: 5 },
+            initialHp: BASE_HP,
+            initialAp: 10,
+            initialCharges: SPELL_DATA[2].maxCharges,
+            turn: 1,
+            enemyConfig: [
+                { type: 'random', distance: [2], mode: 'manhattan' }
+            ]
+        };
+
+        const SCENARIO_1_3_DATA = {
+            id: '1-3',
+            heroPosition: { x: 5, y: 5 },
+            initialHp: BASE_HP,
+            initialAp: 10,
+            initialCharges: SPELL_DATA[2].maxCharges,
+            turn: 1,
+            enemyConfig: [
+                { type: 'random', distance: [4], mode: 'manhattan' }
+            ]
+        };
+
+        // Multi Enemy Scenarios (2-X)
+        const SCENARIO_2_1_DATA = {
+            id: '2-1',
+            heroPosition: { x: 5, y: 5 },
+            initialHp: BASE_HP,
+            initialAp: 10,
+            initialCharges: SPELL_DATA[2].maxCharges,
+            turn: 1,
+            // 2 enemies, spawned on the immediate diagonals (+/-1, +/-1)
+            enemyConfig: [
+                { type: 'relative', dx: 1, dy: 1 },
+                { type: 'relative', dx: -1, dy: -1 }
+            ]
+        };
+
+        const SCENARIO_2_2_DATA = {
+            id: '2-2',
+            heroPosition: { x: 5, y: 5 },
+            initialHp: BASE_HP,
+            initialAp: 10,
+            initialCharges: SPELL_DATA[2].maxCharges,
+            turn: 1,
+            // E1: anywhere 1 or 2 squares away (Manhattan distance).
+            // E2: adjacent to E1.
+            enemyConfig: [
+                { type: 'random', distance: [1, 2], mode: 'manhattan' },
+                { type: 'adjacent_to_prev' }
+            ]
+        };
+
+        const SCENARIO_2_3_DATA = {
+            id: '2-3',
+            heroPosition: { x: 5, y: 5 },
+            initialHp: BASE_HP,
+            initialAp: 10,
+            initialCharges: SPELL_DATA[2].maxCharges,
+            turn: 1,
+            // 2 enemies aligned on the same diagonal (2 squares and 4 squares from the player)
+            enemyConfig: [
+                { type: 'relative', dx: 2, dy: 2 },
+                { type: 'relative', dx: 4, dy: 4 }
+            ]
+        };
+
+
+        // Store game state
+        const HERO_UNIT_RADIUS = 15;
+        let gameState = {}; 
+
+        const spellButton1 = document.getElementById('spell1');
+        const spellButton2 = document.getElementById('spell2');
+        const spellButton3 = document.getElementById('spell3'); 
+        const spell2ChargesEl = document.getElementById('spell2-charges');
+        const retryButton = document.getElementById('retry-button');
+
+
+        // --- Isometric Conversion Functions ---
+
+        function isoToScreen(x, y) {
+            const screenX = (x - y) * (TILE_WIDTH / 2) + X_OFFSET;
+            const screenY = (x + y) * (TILE_HEIGHT / 2) + Y_OFFSET;
+            return { x: screenX, y: screenY };
+        }
+
+        function screenToIso(pixelX, pixelY) {
+            const tempX = pixelX - X_OFFSET;
+            const tempY = pixelY - Y_OFFSET;
+
+            const gridY = (tempY / (TILE_HEIGHT / 2) - tempX / (TILE_WIDTH / 2)) / 2;
+            const gridX = (tempY / (TILE_HEIGHT / 2) + tempX / (TILE_WIDTH / 2)) / 2;
+            
+            let finalX = Math.round(gridX); 
+            let finalY = Math.round(gridY); 
+
+            if (finalX < 0 || finalX >= GRID_WIDTH || finalY < 0 || finalY >= GRID_HEIGHT) {
+                return null;
+            }
+            return { x: finalX, y: finalY };
+        }
+
+        // --- Game Logic Functions ---
+
+        function isTileValid(x, y) {
+            return x >= 0 && x < GRID_WIDTH && y >= 0 && y < GRID_HEIGHT;
+        }
+
+        /**
+         * Checks if two positions are adjacent (1 tile away, not including same tile).
+         */
+        function isAdjacent(p1, p2) {
+            const dx = Math.abs(p1.x - p2.x);
+            const dy = Math.abs(p1.y - p2.y);
+            return (dx <= 1 && dy <= 1) && (dx + dy > 0);
+        }
+        
+        /**
+         * Clears all temporary grid highlights (states 0, 1, 2, 3) 
+         * but preserves permanent loss highlights (states 4, 5).
+         */
+        function clearTemporaryHighlights() {
+            for (let x = 0; x < GRID_WIDTH; x++) {
+                for (let y = 0; y < GRID_HEIGHT; y++) {
+                    if (gameState.gridStates[x][y] < 4) {
+                        gameState.gridStates[x][y] = 0;
+                    }
+                }
+            }
+        }
+
+        /**
+         * Calculates the intended pushback target. Returns null if invalid (off map).
+         */
+        function getPushbackTarget(unitX, unitY, landingX, landingY) {
+            const dx = Math.sign(unitX - landingX); 
+            const dy = Math.sign(unitY - landingY); 
+
+            if (dx === 0 && dy === 0) return null;
+            
+            const targetX = unitX + dx;
+            const targetY = unitY + dy;
+
+            if (isTileValid(targetX, targetY)) {
+                return { x: targetX, y: targetY };
+            }
+            return null; 
+        }
+
+        /**
+         * Calculates the *intended* pushback target for loss highlighting, ignoring map validity.
+         */
+        function getPushbackTargetPreview(unitX, unitY, landingX, landingY) {
+            const dx = Math.sign(unitX - landingX); 
+            const dy = Math.sign(unitY - landingY); 
+            return { x: unitX + dx, y: unitY + dy };
+        }
+
+        /**
+         * Used for post-movement attraction (Spells 1, 2). Moves enemy 1 tile toward hero.
+         * Prioritizes diagonal if distances are equal, otherwise prefers the longer axis.
+         */
+        function calculateSingleStepAttraction(unitPos, targetPos) {
+            const dx = targetPos.x - unitPos.x;
+            const dy = targetPos.y - unitPos.y;
+
+            let moveX = 0;
+            let moveY = 0;
+            
+            const absDx = Math.abs(dx);
+            const absDy = Math.abs(dy);
+
+            if (absDx === 0 && absDy === 0) {
+                return { x: unitPos.x, y: unitPos.y };
+            }
+
+            // Determine primary direction(s) for 1-tile move
+            if (absDx === absDy) {
+                // Diagonal move (1, 1) - used when distances are equal
+                moveX = Math.sign(dx);
+                moveY = Math.sign(dy);
+            } else if (absDx > absDy) {
+                // Horizontal preference
+                moveX = Math.sign(dx);
+            } else { 
+                // Vertical preference
+                moveY = Math.sign(dy);
+            }
+
+            return { x: unitPos.x + moveX, y: unitPos.y + moveY };
+        }
+
+        /**
+         * Calculates the intended attraction target for Immobilism (Spell 3).
+         * 1-square move (preferring longer delta) OR 1-square diagonal move (if perfect delta match).
+         */
+        function calculateImmobilismAttraction(unitPos, targetPos) {
+            const dx = targetPos.x - unitPos.x;
+            const dy = targetPos.y - unitPos.y;
+
+            const absDx = Math.abs(dx);
+            const absDy = Math.abs(dy);
+
+            let moveX = 0;
+            let moveY = 0;
+
+            // If already at target, no move
+            if (absDx === 0 && absDy === 0) return { x: unitPos.x, y: unitPos.y };
+
+            if (absDx === absDy) {
+                // Case: Perfectly diagonal (e.g., 2,2 or 3,3). Move 1 square in each axis (total 2 squares).
+                moveX = Math.sign(dx) * 1; 
+                moveY = Math.sign(dy) * 1; 
+            } else if (absDx > absDy) {
+                // Case: Longer delta on X. Move 1 square on the X axis.
+                moveX = Math.sign(dx) * 1;
+                moveY = 0;
+            } else { // absDy > absDx
+                // Case: Longer delta on Y. Move 1 square on the Y axis.
+                moveX = 0;
+                moveY = Math.sign(dy) * 1;
+            }
+            
+            return { x: unitPos.x + moveX, y: unitPos.y + moveY };
+        }
+
+
+        /**
+         * Generates a list of valid enemy spawn locations based on distance mode.
+         * Distance can be a single number or an array of allowed distances.
+         */
+        function getSpawnLocations(heroPos, distance, mode) {
+            const potentialSpawns = [];
+            const distances = Array.isArray(distance) ? distance : [distance];
+
+            for (let dx = -GRID_WIDTH; dx < GRID_WIDTH; dx++) {
+                for (let dy = -GRID_HEIGHT; dy < GRID_HEIGHT; dy++) {
+                    
+                    const x = heroPos.x + dx;
+                    const y = heroPos.y + dy;
+
+                    if ((dx === 0 && dy === 0) || !isTileValid(x, y)) {
+                        continue;
+                    }
+
+                    const absDx = Math.abs(dx);
+                    const absDy = Math.abs(dy);
+                    let isValid = false;
+
+                    if (mode === 'manhattan') { 
+                        if (distances.includes(absDx + absDy)) {
+                            isValid = true;
+                        }
+                    } 
+                    // Add other modes if needed (e.g., 'chebyshev' for max(dx, dy))
+
+                    if (isValid) {
+                        potentialSpawns.push({ x, y });
+                    }
+                }
+            }
+            return potentialSpawns;
+        }
+
+        /**
+         * Generates the initial array of enemies based on the scenario configuration.
+         */
+        function generateEnemies(heroPos, config) {
+            let enemies = [];
+            let idCounter = 1;
+
+            for (const conf of config) {
+                let spawnPos = null;
+
+                if (conf.type === 'fixed') {
+                    spawnPos = conf.pos;
+                } else if (conf.type === 'relative') {
+                    spawnPos = { x: heroPos.x + conf.dx, y: heroPos.y + conf.dy };
+                } else if (conf.type === 'random') {
+                    const potentialSpawns = getSpawnLocations(heroPos, conf.distance, conf.mode);
+                    if (potentialSpawns.length > 0) {
+                         // Filter out occupied or hero tiles
+                        const availableSpawns = potentialSpawns.filter(p => 
+                            !enemies.some(e => e.position.x === p.x && e.position.y === p.y) &&
+                            !(p.x === heroPos.x && p.y === heroPos.y)
+                        );
+
+                        if (availableSpawns.length > 0) {
+                             const randomIndex = Math.floor(Math.random() * availableSpawns.length);
+                             spawnPos = availableSpawns[randomIndex];
+                        }
+                    }
+                } else if (conf.type === 'adjacent_to_prev' && enemies.length > 0) {
+                    const prevEnemyPos = enemies[enemies.length - 1].position;
+                    const adjacentCandidates = [];
+                    for (let dx = -1; dx <= 1; dx++) {
+                        for (let dy = -1; dy <= 1; dy++) {
+                            if (dx === 0 && dy === 0) continue;
+                            const x = prevEnemyPos.x + dx;
+                            const y = prevEnemyPos.y + dy;
+                            
+                            // Check validity and if tile is already occupied or is the hero's position
+                            if (isTileValid(x, y) && 
+                                !enemies.some(e => e.position.x === x && e.position.y === y) &&
+                                !(x === heroPos.x && y === heroPos.y)) {
+                                adjacentCandidates.push({ x, y });
+                            }
+                        }
+                    }
+                    if (adjacentCandidates.length > 0) {
+                        const randomIndex = Math.floor(Math.random() * adjacentCandidates.length);
+                        spawnPos = adjacentCandidates[randomIndex];
+                    }
+                }
+
+                if (spawnPos && isTileValid(spawnPos.x, spawnPos.y)) {
+                    enemies.push({ id: idCounter++, position: spawnPos, isAlive: true });
+                }
+            }
+            
+            if (enemies.length !== config.length) {
+                console.warn(`Could only spawn ${enemies.length} out of ${config.length} enemies.`);
+            }
+            return enemies;
+        }
+
+        /**
+         * Highlights the castable range for the currently selected spell.
+         */
+        function highlightCastRange(heroX, heroY, spell) {
+            // Re-clear temporary highlights before calculating new range
+            clearTemporaryHighlights();
+            
+            if (spell.type === 'move') {
+                // Astral Leap (1-range) and Double Leap (2-range) - Cardinal movement
+                const directions = [
+                    { dx: 1, dy: 0 }, { dx: -1, dy: 0 }, 
+                    { dx: 0, dy: 1 }, { dx: 0, dy: -1 }
+                ];
+
+                for (let r = 1; r <= spell.range; r++) {
+                    directions.forEach(({ dx, dy }) => {
+                        const targetX = heroX + dx * r;
+                        const targetY = heroY + dy * r;
+
+                        if (isTileValid(targetX, targetY)) {
+                            if (gameState.gridStates[targetX][targetY] < 4) { 
+                                gameState.gridStates[targetX][targetY] = 1;
+                            }
+                        }
+                    });
+                }
+            } else if (spell.type === 'attraction') { 
+                // Immobilism (Spell 3) - Diagonal 1-square range (Range 2 Manhattan distance)
+                const possibleTargets = [
+                    { dx: 1, dy: 1 }, { dx: 1, dy: -1 }, 
+                    { dx: -1, dy: 1 }, { dx: -1, dy: -1 }
+                ];
+
+                possibleTargets.forEach(({ dx, dy }) => {
+                    const targetX = heroX + dx;
+                    const targetY = heroY + dy;
+                    
+                    if (isTileValid(targetX, targetY)) {
+                        if (gameState.gridStates[targetX][targetY] < 4) { 
+                            gameState.gridStates[targetX][targetY] = 1;
+                        }
+                    }
+                });
+            }
+        }
+
+        function updatePushbackHighlight(landingX, landingY) {
+            // Only applies to Movement spells (1, 2)
+            if (SPELL_DATA[gameState.spellSelected]?.type !== 'move') return;
+
+            // Clear only the pushback highlights (State 2 and 3) before recalculating
+            for (let x = 0; x < GRID_WIDTH; x++) {
+                for (let y = 0; y < GRID_HEIGHT; y++) {
+                    if (gameState.gridStates[x][y] === 2 || gameState.gridStates[x][y] === 3) {
+                        gameState.gridStates[x][y] = gameState.gridStates[x][y] === 3 ? 1 : 0;
+                    }
+                }
+            }
+
+            // Highlight the 3x3 grid (1-range square) around the landing spot.
+            for (let dx = -1; dx <= 1; dx++) {
+                for (let dy = -1; dy <= 1; dy++) {
+                    const highlightX = landingX + dx;
+                    const highlightY = landingY + dy;
+
+                    if (isTileValid(highlightX, highlightY)) {
+                         const currentState = gameState.gridStates[highlightX][highlightY];
+
+                         if (currentState === 1) {
+                             // Tile is castable range. Upgrade to state 3 (Castable + Red Highlight)
+                             gameState.gridStates[highlightX][highlightY] = 3;
+                         } else if (currentState === 0) {
+                             // Tile is default. Change it to state 2 (Red Highlight Only)
+                             gameState.gridStates[highlightX][highlightY] = 2;
+                         }
+                    }
+                }
+            }
+        }
+        
+        function updateDomStatus() {
+            const { hp, ap, maxHp, maxAp } = gameState.heroStats;
+            
+            document.getElementById('turn-counter').textContent = `Turn: ${gameState.turn}`;
+            
+            const hpElement = document.getElementById('hp-counter');
+            hpElement.textContent = `HP: ${hp}/${maxHp}`;
+            hpElement.className = hp <= 5 ? 'text-red-500 font-bold' : 'text-green-400';
+
+            const apElement = document.getElementById('ap-counter');
+            apElement.textContent = `AP: ${ap}/${maxAp}`;
+            apElement.className = ap < SPELL_DATA[2].costAP ? 'text-gray-400' : 'text-yellow-300';
+
+            spell2ChargesEl.textContent = gameState.spellCharges[2];
+            
+            // Check disabled states for all spells
+            const isSpell1Disabled = ap < SPELL_DATA[1].costAP || hp < SPELL_DATA[1].costHP;
+            const isSpell2Disabled = gameState.spellCharges[2] <= 0 || ap < SPELL_DATA[2].costAP || hp < SPELL_DATA[2].costHP;
+            const isSpell3Disabled = ap < SPELL_DATA[3].costAP || hp < SPELL_DATA[3].costHP;
+
+            spellButton1.classList.toggle('spell-disabled', isSpell1Disabled);
+            spellButton2.classList.toggle('spell-disabled', isSpell2Disabled);
+            spellButton3.classList.toggle('spell-disabled', isSpell3Disabled);
+        }
+        
+        function activateSpell(spellId) {
+            if (gameState.heroStats.hp <= 0) return;
+
+            const spell = SPELL_DATA[spellId];
+            
+            const hasResources = gameState.heroStats.ap >= spell.costAP && gameState.heroStats.hp >= spell.costHP;
+            const hasCharges = spell.maxCharges === Infinity || gameState.spellCharges[spellId] > 0;
+            
+            if (spellId === gameState.spellSelected) {
+                gameState.spellSelected = 0;
+            } else if (hasResources && hasCharges) {
+                gameState.spellSelected = spellId;
+            } else {
+                if (gameState.spellSelected !== 0) {
+                     gameState.spellSelected = 0;
+                }
+            }
+            
+            // Remove active class from all buttons
+            spellButton1.classList.remove('spell-icon-active');
+            spellButton2.classList.remove('spell-icon-active');
+            spellButton3.classList.remove('spell-icon-active');
+            
+            if (gameState.spellSelected === 0) {
+                clearTemporaryHighlights(); 
+                gameState.hoveredTile = null;
+                CANVAS.style.cursor = 'default';
+            } else {
+                highlightCastRange(gameState.heroPosition.x, gameState.heroPosition.y, SPELL_DATA[gameState.spellSelected]);
+                document.getElementById(`spell${gameState.spellSelected}`).classList.add('spell-icon-active');
+                CANVAS.style.cursor = 'crosshair';
+            }
+            render();
+        }
+
+        function castSpell(targetX, targetY) {
+            if (gameState.heroStats.hp <= 0) {
+                activateSpell(gameState.spellSelected);
+                return;
+            }
+
+            const spellId = gameState.spellSelected;
+            const spell = SPELL_DATA[spellId];
+            
+            const hasResources = gameState.heroStats.ap >= spell.costAP && gameState.heroStats.hp >= spell.costHP;
+            const hasCharges = spell.maxCharges === Infinity || gameState.spellCharges[spellId] > 0;
+
+            if (!hasResources || !hasCharges) {
+                console.log(`Cannot cast Spell ${spellId}: Insufficient AP, HP, or Charges.`);
+                gameState.spellSelected = 0;
+                CANVAS.style.cursor = 'default';
+                render();
+                return;
+            }
+            
+            // 1. Apply costs
+            gameState.heroStats.ap -= spell.costAP;
+            gameState.heroStats.hp -= spell.costHP;
+            
+            if (spell.maxCharges !== Infinity) {
+                gameState.spellCharges[spellId] -= 1;
+            }
+
+            let enemiesKilledThisTurn = 0;
+            let immediateLoss = false;
+
+
+            // --- Movement Spells (Astral Leap, Double Leap) ---
+            if (spell.type === 'move') {
+                // 2. Hero Movement
+                gameState.heroPosition = { x: targetX, y: targetY }; 
+                
+                // 3. Enemy Interactions Loop
+                for (let enemy of gameState.enemies) {
+                    if (!enemy.isAlive) continue;
+
+                    // 3a. Check for Hero Landing on or Adjacent to Enemy
+                    const { x: ex, y: ey } = enemy.position;
+                    const { x: hx, y: hy } = gameState.heroPosition;
+
+                    if (hx === ex && hy === ey) {
+                        // Hero landed on enemy (Elimination)
+                        enemy.isAlive = false;
+                        enemiesKilledThisTurn++;
+                        continue; 
+                    } 
+                    else if (isAdjacent(gameState.heroPosition, enemy.position)) {
+                        // Hero landed adjacent (Immediate Loss)
+                        gameState.lossDetails = {
+                            isLoss: true, 
+                            unit: 'Player',
+                            reason: 'Adjacent Landing',
+                            from: gameState.heroPosition, 
+                            to: enemy.position
+                        };
+                        gameState.heroStats.hp = 0; 
+                        immediateLoss = true;
+                        break;
+                    }
+                    
+                    // --- STOP if LOSS occurred after Player Move ---
+                    if (immediateLoss) break;
+
+                    // 3b. Apply Pushback (only if enemy is adjacent to landing tile)
+                    const dx_to_landing = ex - hx;
+                    const dy_to_landing = ey - hy;
+                    
+                    let pushbackApplied = false;
+                    let newEnemyPos = { x: ex, y: ey };
+
+                    if (Math.abs(dx_to_landing) <= 1 && Math.abs(dy_to_landing) <= 1) {
+                        const pushbackTarget = getPushbackTarget(ex, ey, hx, hy);
+                        
+                        if (!pushbackTarget) {
+                            // PUSHBACK BLOCK LOSS CHECK
+                            gameState.lossDetails = { 
+                                isLoss: true, 
+                                unit: `Enemy ${enemy.id}`, 
+                                reason: 'Pushback Blocked',
+                                from: {x: ex, y: ey}, 
+                                to: getPushbackTargetPreview(ex, ey, hx, hy)
+                            };
+                            gameState.heroStats.hp = 0;
+                            immediateLoss = true;
+                            break;
+                        } else {
+                            newEnemyPos = pushbackTarget;
+                            pushbackApplied = true;
+                        }
+                    }
+                    
+                    // --- STOP if LOSS occurred after Pushback ---
+                    if (immediateLoss) break;
+
+                    // 3c. Apply Attraction Phase
+                    let enemyPosBeforeAttraction = pushbackApplied ? newEnemyPos : enemy.position;
+                    
+                    // Attraction uses the single-step (diagonal-preferring) movement towards HERO
+                    const intendedNextPos = calculateSingleStepAttraction(enemyPosBeforeAttraction, gameState.heroPosition);
+                    
+                    // Attraction Blocked (Off Map)
+                    if (!isTileValid(intendedNextPos.x, intendedNextPos.y)) {
+                        if (intendedNextPos.x !== enemyPosBeforeAttraction.x || intendedNextPos.y !== enemyPosBeforeAttraction.y) {
+                            gameState.lossDetails = { 
+                                isLoss: true, 
+                                unit: `Enemy ${enemy.id}`, 
+                                reason: 'Attraction Blocked',
+                                from: enemyPosBeforeAttraction, 
+                                to: intendedNextPos 
+                            };
+                            gameState.heroStats.hp = 0; 
+                            immediateLoss = true;
+                            break;
+                        }
+                    } 
+                    // Attraction onto Hero (Elimination/Kill)
+                    else if (intendedNextPos.x === gameState.heroPosition.x && intendedNextPos.y === gameState.heroPosition.y) {
+                        enemy.isAlive = false;
+                        enemiesKilledThisTurn++;
+                    } 
+                    // Normal Attraction Move
+                    else {
+                        if (intendedNextPos.x !== enemyPosBeforeAttraction.x || intendedNextPos.y !== enemyPosBeforeAttraction.y) {
+                            enemy.position = intendedNextPos;
+                        }
+                    }
+
+                    // If pushback was applied and no attraction move happened, ensure the pushback position is saved
+                    if (pushbackApplied && intendedNextPos.x === enemyPosBeforeAttraction.x && intendedNextPos.y === enemyPosBeforeAttraction.y) {
+                        enemy.position = newEnemyPos; 
+                    }
+                } // End Enemy Interactions Loop
+
+                // Apply HP refund outside the loop after checking for losses
+                if (!immediateLoss && enemiesKilledThisTurn > 0) {
+                    gameState.heroStats.hp += enemiesKilledThisTurn * HP_REFUND_ON_KILL; 
+                    if (gameState.heroStats.hp > gameState.heroStats.maxHp) {
+                        gameState.heroStats.hp = gameState.heroStats.maxHp;
+                    }
+                    console.log(`Eliminated ${enemiesKilledThisTurn} enemies. Refunded ${enemiesKilledThisTurn * HP_REFUND_ON_KILL} HP.`);
+                }
+
+            } 
+            // --- Attraction Spell (Immobilism) ---
+            else if (spell.type === 'attraction') { 
+                 if (gameState.heroStats.hp > 0) {
+                    const heroPos = gameState.heroPosition;
+                    const targetPos = { x: targetX, y: targetY };
+
+                    for (let enemy of gameState.enemies) {
+                        if (!enemy.isAlive) continue;
+
+                        const enemyPosBeforeAttraction = enemy.position;
+                        // Calculate the single, calculated destination tile (1 square move)
+                        const intendedNextPos = calculateImmobilismAttraction(enemyPosBeforeAttraction, targetPos);
+                        
+                        // 1. Check for Map Edge Block (LOSS)
+                        if (!isTileValid(intendedNextPos.x, intendedNextPos.y)) {
+                            if (intendedNextPos.x !== enemyPosBeforeAttraction.x || intendedNextPos.y !== enemyPosBeforeAttraction.y) {
+                                gameState.lossDetails = { 
+                                    isLoss: true, 
+                                    unit: `Enemy ${enemy.id}`, 
+                                    reason: 'Attraction Blocked',
+                                    from: enemyPosBeforeAttraction, 
+                                    to: intendedNextPos 
+                                };
+                                gameState.heroStats.hp = 0;
+                                immediateLoss = true;
+                                break;
+                            }
+                        } else if (intendedNextPos.x === heroPos.x && intendedNextPos.y === heroPos.y) {
+                            // 2. Check for Hero Block (STOPS MOVEMENT)
+                            if (intendedNextPos.x !== enemyPosBeforeAttraction.x || intendedNextPos.y !== enemyPosBeforeAttraction.y) {
+                                 console.log(`Enemy ${enemy.id} Immobilism attraction blocked by hero.`);
+                            }
+                            // Enemy stays put
+                        } else {
+                            // 3. Move is valid and safe, update position
+                            enemy.position = intendedNextPos;
+                        }
+                    }
+                }
+            }
+
+
+            // --- Final STOP check ---
+            if (gameState.heroStats.hp <= 0 || immediateLoss) {
+                gameState.spellSelected = 0;
+                clearTemporaryHighlights(); 
+                checkWinCondition(); 
+                render();
+                return;
+            }
+            
+            // 6. Final Reset state and Render (ONLY if NO loss occurred)
+            gameState.spellSelected = 0;
+            clearTemporaryHighlights();
+            
+            gameState.hoveredTile = null;
+            document.getElementById(`spell${spellId}`).classList.remove('spell-icon-active');
+            CANVAS.style.cursor = 'default';
+            render();
+            checkWinCondition(); 
+        }
+        
+        function endTurn() {
+            if (gameState.heroStats.hp <= 0) return;
+
+            // Apply turn end costs
+            gameState.heroStats.hp -= 1; 
+            
+            if (gameState.heroStats.hp < 0) {
+                gameState.heroStats.hp = 0;
+            }
+            
+            // Reset resources and charges
+            gameState.turn += 1;
+            gameState.heroStats.ap = gameState.heroStats.maxAp;
+            gameState.spellCharges[2] = SPELL_DATA[2].maxCharges; 
+            
+            // Ensure no spell is left selected
+            if (gameState.spellSelected !== 0) {
+                gameState.spellSelected = 0;
+            }
+            
+            clearTemporaryHighlights(); // Use non-destructive clear
+            
+            console.log(`--- Turn ${gameState.turn} Started ---`);
+            render();
+            checkWinCondition();
+        }
+
+        // --- Drill/Scenario Management and Banner Functions ---
+        
+        function showBanner(title, message, type, showRetryButton) {
+            const banner = document.getElementById('game-banner');
+            document.getElementById('banner-title').textContent = title;
+            document.getElementById('banner-message').textContent = message;
+            
+            banner.classList.remove('hidden', 'banner-win', 'banner-loss');
+            
+            if (type === 'win') {
+                banner.classList.add('banner-win');
+            } else if (type === 'loss') {
+                banner.classList.add('banner-loss');
+            }
+            
+            if (showRetryButton) {
+                retryButton.classList.remove('hidden');
+            } else {
+                retryButton.classList.add('hidden');
+            }
+        }
+
+        function hideBanner() {
+            document.getElementById('game-banner').classList.add('hidden');
+        }
+        
+        /**
+         * Clears all grid states (used only on full game reset).
+         */
+        function resetGridStates() {
+            for (let x = 0; x < GRID_WIDTH; x++) {
+                for (let y = 0; y < GRID_HEIGHT; y++) {
+                    gameState.gridStates[x][y] = 0;
+                }
+            }
+        }
+
+
+        function checkWinCondition() {
+            const allEnemiesDefeated = gameState.enemies.every(e => !e.isAlive);
+
+            // Check for simple HP LOSS (Turn-end death, no consequence tile)
+            if (gameState.heroStats.hp <= 0 && !gameState.lossDetails.isLoss) {
+                gameState.lossDetails = {
+                    isLoss: true, 
+                    unit: 'Player',
+                    reason: 'HP Loss',
+                    from: gameState.heroPosition, 
+                    to: null 
+                };
+            }
+
+            // Check for any type of LOSS
+            if (gameState.heroStats.hp <= 0 && gameState.lossDetails.isLoss) {
+                const { reason, from, to } = gameState.lossDetails;
+                let title = reason === 'HP Loss' ? "Defeat!" : "Failed!";
+                let msg = '';
+                
+                if (reason === 'Adjacent Landing') {
+                    msg = "Player landed adjacent to an enemy. Cannot land adjacent without an elimination occurring.";
+                } else if (reason === 'Pushback Blocked') {
+                    msg = "An enemy's pushback was blocked by the map boundary.";
+                } else if (reason === 'Attraction Blocked') {
+                    msg = "An enemy's attraction was blocked by the map boundary.";
+                } else if (reason === 'HP Loss') {
+                    msg = `Your HP reached zero at the end of Turn ${gameState.turn - 1} before the start of the next turn.`;
+                }
+                
+                // State 4 (Triggering Unit/Start) -> BLUE is always set for the trigger unit
+                if (from) {
+                     gameState.gridStates[from.x][from.y] = 4;
+                }
+               
+                // State 5 (Consequence/Problem) -> RED is only set if 'to' is defined AND valid
+                if (to && !isTileValid(to.x, to.y)) { 
+                    // For off-map destination, we can't draw the tile, so we just log the coordinates.
+                } else if (to && isTileValid(to.x, to.y)) {
+                     // For on-map destinations (like Adjacent Landing), highlight the target cell.
+                     gameState.gridStates[to.x][to.y] = 5;
+                }
+
+                showBanner(title, msg, 'loss', true); 
+                return;
+            }
+
+            // Check for VICTORY
+            if (gameState.heroStats.hp > 0 && allEnemiesDefeated) {
+                showBanner("Victory!", `Scenario completed on Turn ${gameState.turn}!`, 'win', true);
+                return;
+            }
+            
+            hideBanner();
+        }
+
+        function resetGame(scenarioData) {
+            // Generate enemy positions based on scenario config
+            const initialEnemies = generateEnemies(scenarioData.heroPosition, scenarioData.enemyConfig);
+            
+            if (initialEnemies.length === 0) {
+                 console.error("No valid enemies could be spawned for this scenario.");
+                 // Fallback to scenario 1-1 if a new scenario fails to load
+                 resetGame(SCENARIO_1_1_DATA);
+                 return;
+            }
+
+            gameState = {
+                turn: scenarioData.turn,
+                heroPosition: { ...scenarioData.heroPosition },
+                enemies: initialEnemies, // Now an array
+                heroStats: { 
+                    hp: scenarioData.initialHp, 
+                    ap: scenarioData.initialAp, 
+                    maxHp: scenarioData.initialHp, 
+                    maxAp: scenarioData.initialAp 
+                },
+                spellSelected: 0, 
+                spellCharges: { 1: Infinity, 2: scenarioData.initialCharges, 3: Infinity },
+                hoveredTile: null,
+                lossDetails: { isLoss: false, unit: null, reason: null, from: null, to: null },
+                gridStates: Array(GRID_WIDTH).fill(0).map(() => Array(GRID_HEIGHT).fill(0)),
+                currentScenario: scenarioData 
+            };
+            
+            hideBanner(); 
+            resetGridStates(); 
+            CANVAS.style.cursor = 'default';
+            
+            document.getElementById('retry-button').onclick = () => resetGame(scenarioData);
+
+            render();
+            console.log(`--- Scenario ${scenarioData.id} Loaded. Enemies: ${initialEnemies.map(e => `(${e.position.x}, ${e.position.y})`).join(', ')}. Turn ${gameState.turn} Started ---`);
+        }
+
+
+        // --- Drawing Functions (Native Canvas) ---
+        
+        /**
+         * Draws a single isometric tile.
+         */
+        function drawTile(x, y, color, alpha = 1.0) {
+            const { x: sx, y: sy } = isoToScreen(x, y);
+
+            CTX.beginPath();
+            
+            CTX.moveTo(sx, sy + TILE_HEIGHT / 2);      
+            CTX.lineTo(sx + TILE_WIDTH / 2, sy);        
+            CTX.lineTo(sx, sy - TILE_HEIGHT / 2);      
+            CTX.lineTo(sx - TILE_WIDTH / 2, sy);        
+            CTX.closePath();
+            
+            CTX.fillStyle = color;
+            CTX.strokeStyle = '#4b5563'; 
+            CTX.lineWidth = 1;
+            
+            CTX.globalAlpha = alpha; // Set specific alpha for this tile
+            CTX.fill();
+            CTX.globalAlpha = 1.0; // Reset global alpha for stroke/units
+            CTX.stroke();
+        }
+
+        function drawGrid() {
+            for (let y = 0; y < GRID_HEIGHT; y++) {
+                for (let x = 0; x < GRID_WIDTH; x++) {
+                    let fillColor = '#333d45'; 
+                    const state = gameState.gridStates[x][y];
+                    let alpha = 0.7; // Default alpha for non-final states
+
+                    // Check for highlights: State 1 (Blue), State 2 or 3 (Red Preview)
+                    if (state === 1) {
+                        fillColor = '#3b82f6'; // State 1: Cast Range (Blue)
+                    } else if (state === 2 || state === 3) {
+                        // State 2/3: Pushback Highlight (Red Preview)
+                        fillColor = 'rgba(239, 68, 68, 0.8)'; 
+                    }
+                    
+                    // Check for Permanent Loss Highlights (4 and 5)
+                    if (state === 4) { // Triggering Unit/Start (BLUE, OPAQUE)
+                        fillColor = '#3b82f6'; 
+                        alpha = 1.0; 
+                    } else if (state === 5) { // Consequence/Problem (RED, OPAQUE)
+                        fillColor = 'rgba(239, 68, 68, 1.0)'; 
+                        alpha = 1.0; 
+                    }
+
+                    // Check for Hover Highlight (Yellow) - overrides other highlights except Loss
+                    if (gameState.heroStats.hp > 0 && 
+                        gameState.spellSelected !== 0 && 
+                        gameState.hoveredTile && 
+                        gameState.hoveredTile.x === x && 
+                        gameState.hoveredTile.y === y &&
+                        CASTABLE_STATES.includes(state)) {
+                        
+                        fillColor = '#fcd34d'; // Yellow-300 for hover preview
+                        alpha = 1.0; // Make hover opaque for clarity
+                    }
+                    
+                    drawTile(x, y, fillColor, alpha);
+                }
+            }
+        }
+        
+        function drawUnit(position, color) {
+            const { x: sx, y: sy } = isoToScreen(position.x, position.y);
+            const unitCenterY = sy - TILE_HEIGHT / 4; 
+
+            // 1. Base Shadow (Ellipse)
+            CTX.beginPath();
+            CTX.ellipse(sx, sy + 5, HERO_UNIT_RADIUS * 0.7, HERO_UNIT_RADIUS * 0.3, 0, 0, 2 * Math.PI);
+            CTX.fillStyle = 'rgba(0, 0, 0, 0.4)';
+            CTX.fill();
+
+            // 2. Main Unit Body (Circle)
+            CTX.shadowColor = 'rgba(0, 0, 0, 0.5)';
+            CTX.shadowBlur = 4;
+            CTX.shadowOffsetX = 2;
+            CTX.shadowOffsetY = 1;
+
+            CTX.beginPath();
+            CTX.arc(sx, unitCenterY, HERO_UNIT_RADIUS, 0, 2 * Math.PI);
+            CTX.fillStyle = color; 
+            CTX.fill();
+            
+            // Reset shadow settings
+            CTX.shadowColor = 'transparent';
+            CTX.shadowBlur = 0;
+            CTX.shadowOffsetX = 0;
+            CTX.shadowOffsetY = 0;
+        }
+
+        function drawUnits() {
+            // Draw Player (Blue)
+            drawUnit(gameState.heroPosition, '#3b82f6'); 
+            
+            // Draw Enemies (Orange) - only if alive
+            gameState.enemies.forEach(enemy => {
+                if (enemy.isAlive) {
+                    drawUnit(enemy.position, '#f97316');
+                }
+            });
+        }
+
+        function render() {
+            CTX.clearRect(0, 0, CANVAS_WIDTH, CANVAS_HEIGHT);
+            
+            const selectedSpell = gameState.spellSelected !== 0 ? SPELL_DATA[gameState.spellSelected] : null;
+
+            // Only update grid states for spell preview if the player is ALIVE (HP > 0)
+            if (gameState.heroStats.hp > 0 && selectedSpell) { 
+                highlightCastRange(gameState.heroPosition.x, gameState.heroPosition.y, selectedSpell);
+                
+                if (selectedSpell.type === 'move' && gameState.hoveredTile && CASTABLE_STATES.includes(gameState.gridStates[gameState.hoveredTile.x][gameState.hoveredTile.y])) {
+                    updatePushbackHighlight(gameState.hoveredTile.x, gameState.hoveredTile.y);
+                } else {
+                    // Clear temporary pushback highlights if not hovering over a castable tile
+                    for (let x = 0; x < GRID_WIDTH; x++) {
+                        for (let y = 0; y < GRID_HEIGHT; y++) {
+                            // Only clear states 2 and 3, resetting 3 to 1 if it was a castable tile
+                            if (gameState.gridStates[x][y] === 2 || gameState.gridStates[x][y] === 3) {
+                                gameState.gridStates[x][y] = gameState.gridStates[x][y] === 3 ? 1 : 0;
+                            }
+                        }
+                    }
+                }
+            } else if (gameState.heroStats.hp > 0 && !selectedSpell) {
+                // If HP > 0 but no spell selected, ensure only the background states (0) or permanent loss states (4, 5) remain
+                clearTemporaryHighlights();
+            }
+            
+            drawGrid();
+            drawUnits();
+            updateDomStatus();
+            
+            // Sync UI active state
+            [spellButton1, spellButton2, spellButton3].forEach((btn, index) => {
+                btn.classList.toggle('spell-icon-active', gameState.spellSelected === index + 1);
+            });
+        }
+
+        // --- Interaction Handlers ---
+
+        function handleMouseMove(event) {
+            if (gameState.heroStats.hp <= 0) return;
+            if (gameState.spellSelected === 0) return;
+
+            const rect = CANVAS.getBoundingClientRect();
+            const clickX = event.clientX - rect.left;
+            const clickY = event.clientY - rect.top;
+
+            const isoCoords = screenToIso(clickX, clickY);
+
+            if (isoCoords && CASTABLE_STATES.includes(gameState.gridStates[isoCoords.x][isoCoords.y])) {
+                gameState.hoveredTile = isoCoords;
+                CANVAS.style.cursor = 'pointer'; 
+            } else {
+                gameState.hoveredTile = null;
+                CANVAS.style.cursor = 'crosshair'; 
+            }
+            render();
+        }
+
+        const debouncedMouseMove = debounce(handleMouseMove, 50);
+
+        CANVAS.addEventListener('mousemove', debouncedMouseMove);
+        
+        CANVAS.addEventListener('mouseup', (event) => {
+            if (gameState.heroStats.hp <= 0) return;
+            if (gameState.spellSelected === 0) return;
+
+            const rect = CANVAS.getBoundingClientRect();
+            const clickX = event.clientX - rect.left;
+            const clickY = event.clientY - rect.top;
+            const isoCoords = screenToIso(clickX, clickY);
+
+            if (isoCoords && CASTABLE_STATES.includes(gameState.gridStates[isoCoords.x][isoCoords.y])) {
+                 gameState.hoveredTile = isoCoords;
+                 castSpell(isoCoords.x, isoCoords.y);
+            } else {
+                // If clicked outside the castable range, deselect the spell
+                activateSpell(gameState.spellSelected);
+            }
+        });
+
+        document.addEventListener('keydown', (event) => {
+            if (gameState.heroStats.hp <= 0) return;
+            
+            const key = parseInt(event.key);
+            if (key >= 1 && key <= 3) {
+                const spellId = key;
+                
+                // Attempt to cast if the spell is already selected and we have a target
+                if (gameState.spellSelected === spellId && gameState.hoveredTile && CASTABLE_STATES.includes(gameState.gridStates[gameState.hoveredTile.x][gameState.hoveredTile.y])) {
+                    castSpell(gameState.hoveredTile.x, gameState.hoveredTile.y);
+                } else {
+                    // Select/Deselect the spell
+                    activateSpell(spellId);
+                }
+            }
+        });
+
+        // Initialize the game with Scenario 1-1
+        window.onload = function() {
+            setTimeout(() => {
+                resetGame(SCENARIO_1_1_DATA);
+            }, 10);
+        }
+    </script>
 </body>
 </html>
