@@ -1,6 +1,15 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
+    <!-- Google tag (gtag.js). This should only be set to track page views for my own curiosity-->
+    <script async src="https://www.googletagmanager.com/gtag/js?id=G-KMYEFX1JHB"></script>
+    <script>
+        window.dataLayer = window.dataLayer || [];
+        function gtag(){dataLayer.push(arguments);}
+        gtag('js', new Date());
+
+        gtag('config', 'G-KMYEFX1JHB');
+    </script>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Bolgrot's Spirit Simulator</title>
@@ -38,9 +47,6 @@
             display: block;
         }
         /* Style for the spell button to make it look like a tactical tile/icon */
-        .spell-container {
-            position: relative;
-        }
         .spell-icon, .end-turn-button {
             width: 60px;
             height: 60px;
@@ -59,6 +65,36 @@
             line-height: 1.2; 
             white-space: normal; /* Added for text wrap */
             padding: 2px; /* Added padding to prevent crowding */
+            overflow: hidden; /* Hide overflow */
+            text-overflow: ellipsis; /* Add ellipsis for overflow */
+            position: relative; /* For tooltip positioning */
+        }
+        
+        /* Tooltip for spell buttons */
+        .spell-container {
+            position: relative;
+        }
+        
+        .spell-tooltip {
+            position: absolute;
+            bottom: 100%;
+            left: 50%;
+            transform: translateX(-50%);
+            background-color: rgba(0, 0, 0, 0.9);
+            color: white;
+            padding: 4px 8px;
+            border-radius: 4px;
+            font-size: 12px;
+            white-space: nowrap;
+            z-index: 1000;
+            opacity: 0;
+            pointer-events: none;
+            transition: opacity 0.2s ease;
+            margin-bottom: 5px;
+        }
+        
+        .spell-container:hover .spell-tooltip {
+            opacity: 1;
         }
         /* Larger End Turn Button */
         .end-turn-button {
@@ -157,7 +193,7 @@
 
     <div class="text-center mb-6">
         <h1 class="text-3xl font-bold text-yellow-300">Bolgrot's Spirit Simulator</h1>
-        <p class="text-gray-400">Manage your AP, HP, and spell charges to eliminate enemies.</p>
+        <p class="text-gray-400">Manage your AP, HP, and abilities to eliminate enemies.</p>
     </div>
     
     <!-- Drill Control Buttons -->
@@ -225,6 +261,7 @@
                 <div id="spell1" class="spell-icon bg-yellow-600 text-white select-none" onclick="activateSpell(1)">
                     Astral Leap
                 </div>
+                <div class="spell-tooltip">Astral Leap</div>
             </div>
 
             <!-- Spell 2: Double Leap (Grey) -->
@@ -232,6 +269,7 @@
                 <div id="spell2" class="spell-icon bg-slate-600 text-white select-none" onclick="activateSpell(2)">
                     Double Leap
                 </div>
+                <div class="spell-tooltip">Double Leap</div>
                 <!-- Charge Counter for Spell 2 -->
                 <span id="spell2-charges" class="charge-counter">2</span>
             </div>
@@ -241,6 +279,7 @@
                 <div id="spell3" class="spell-icon bg-slate-700 text-white select-none" onclick="activateSpell(3)">
                     Immobilism
                 </div>
+                <div class="spell-tooltip">Immobilism</div>
             </div>
 
             <div class="w-8"></div> <!-- Gap between spells and End Turn -->
@@ -253,7 +292,7 @@
     </div>
 
     <footer class="mt-4 text-xs text-gray-500 max-w-lg text-center">
-    Note: This is a non-commercial fan project exploring the AP/MP system.
+    Note: This is a non-commercial fan project that explores the mechanics of the tricky Bolgrot's Spirit encounter as part of the Turquoise Dofus quest line.
     </footer>
 
     <script>
@@ -800,18 +839,12 @@
                 }
             }
             
-            // Remove active class from all buttons
-            spellButton1.classList.remove('spell-icon-active');
-            spellButton2.classList.remove('spell-icon-active');
-            spellButton3.classList.remove('spell-icon-active');
-            
             if (gameState.spellSelected === 0) {
                 clearTemporaryHighlights(); 
                 gameState.hoveredTile = null;
                 CANVAS.style.cursor = 'default';
             } else {
                 highlightCastRange(gameState.heroPosition.x, gameState.heroPosition.y, SPELL_DATA[gameState.spellSelected]);
-                document.getElementById(`spell${gameState.spellSelected}`).classList.add('spell-icon-active');
                 CANVAS.style.cursor = 'crosshair';
             }
             render();
@@ -846,6 +879,7 @@
             }
 
             let enemiesKilledThisTurn = 0;
+            let currentSpellEliminatedEnemy = false;
             let immediateLoss = false;
 
 
@@ -854,11 +888,11 @@
                 // 2. Hero Movement
                 gameState.heroPosition = { x: targetX, y: targetY }; 
                 
-                // 3. Enemy Interactions Loop
+                // 3. Enemy Interactions Loop - Phase 1: Eliminations
                 for (let enemy of gameState.enemies) {
                     if (!enemy.isAlive) continue;
 
-                    // 3a. Check for Hero Landing on or Adjacent to Enemy
+                    // 3a. Check for Hero Landing on Enemy (Elimination)
                     const { x: ex, y: ey } = enemy.position;
                     const { x: hx, y: hy } = gameState.heroPosition;
 
@@ -866,31 +900,44 @@
                         // Hero landed on enemy (Elimination)
                         enemy.isAlive = false;
                         enemiesKilledThisTurn++;
-                        continue; 
-                    } 
-                    else if (isAdjacent(gameState.heroPosition, enemy.position)) {
-                        // Hero landed adjacent (Immediate Loss)
-                        gameState.lossDetails = {
-                            isLoss: true, 
-                            unit: 'Player',
-                            reason: 'Adjacent Landing',
-                            from: gameState.heroPosition, 
-                            to: enemy.position
-                        };
-                        gameState.heroStats.hp = 0; 
-                        immediateLoss = true;
-                        break;
+                        currentSpellEliminatedEnemy = true;
                     }
-                    
-                    // --- STOP if LOSS occurred after Player Move ---
-                    if (immediateLoss) break;
+                }
 
-                    // 3b. Apply Pushback (only if enemy is adjacent to landing tile)
-                    const dx_to_landing = ex - hx;
-                    const dy_to_landing = ey - hy;
-                    
-                    let pushbackApplied = false;
-                    let newEnemyPos = { x: ex, y: ey };
+                // Phase 2: Adjacency checks (only if no elimination occurred)
+                if (!currentSpellEliminatedEnemy) {
+                    for (let enemy of gameState.enemies) {
+                        if (!enemy.isAlive) continue;
+
+                        if (isAdjacent(gameState.heroPosition, enemy.position)) {
+                            // Hero landed adjacent (Immediate Loss)
+                            gameState.lossDetails = {
+                                isLoss: true, 
+                                unit: 'Player',
+                                reason: 'Adjacent Landing',
+                                from: gameState.heroPosition, 
+                                to: enemy.position
+                            };
+                            gameState.heroStats.hp = 0; 
+                            immediateLoss = true;
+                            break;
+                        }
+                    }
+                }
+
+                // Phase 3: Continue with pushback and attraction for remaining alive enemies
+                if (!immediateLoss) {
+                    for (let enemy of gameState.enemies) {
+                        if (!enemy.isAlive) continue;
+
+                        // 3b. Apply Pushback (only if enemy is adjacent to landing tile)
+                        const { x: ex, y: ey } = enemy.position;
+                        const { x: hx, y: hy } = gameState.heroPosition;
+                        const dx_to_landing = ex - hx;
+                        const dy_to_landing = ey - hy;
+                        
+                        let pushbackApplied = false;
+                        let newEnemyPos = { x: ex, y: ey };
 
                     if (Math.abs(dx_to_landing) <= 1 && Math.abs(dy_to_landing) <= 1) {
                         const pushbackTarget = getPushbackTarget(ex, ey, hx, hy);
@@ -953,7 +1000,8 @@
                     if (pushbackApplied && intendedNextPos.x === enemyPosBeforeAttraction.x && intendedNextPos.y === enemyPosBeforeAttraction.y) {
                         enemy.position = newEnemyPos; 
                     }
-                } // End Enemy Interactions Loop
+                    } // End Phase 3 Enemy Interactions Loop
+                } // End if (!immediateLoss)
 
                 // Apply HP refund outside the loop after checking for losses
                 if (!immediateLoss && enemiesKilledThisTurn > 0) {
@@ -971,36 +1019,91 @@
                     const heroPos = gameState.heroPosition;
                     const targetPos = { x: targetX, y: targetY };
 
+                    // Calculate spell direction for clockwise ordering
+                    const spellDirection = Math.atan2(targetPos.y - heroPos.y, targetPos.x - heroPos.x);
+
+                    // Get all alive enemies and calculate their intended positions
+                    const enemyUpdates = [];
                     for (let enemy of gameState.enemies) {
                         if (!enemy.isAlive) continue;
 
                         const enemyPosBeforeAttraction = enemy.position;
-                        // Calculate the single, calculated destination tile (1 square move)
                         const intendedNextPos = calculateImmobilismAttraction(enemyPosBeforeAttraction, targetPos);
                         
+                        // Calculate distance to target for priority
+                        const distanceToTarget = Math.abs(intendedNextPos.x - targetPos.x) + Math.abs(intendedNextPos.y - targetPos.y);
+                        
+                        // Calculate angle for clockwise ordering (relative to spell direction)
+                        const enemyAngle = Math.atan2(enemyPosBeforeAttraction.y - heroPos.y, enemyPosBeforeAttraction.x - heroPos.x);
+                        let relativeAngle = enemyAngle - spellDirection;
+                        if (relativeAngle < 0) relativeAngle += 2 * Math.PI; // Normalize to 0-2π
+                        
+                        enemyUpdates.push({
+                            enemy,
+                            from: enemyPosBeforeAttraction,
+                            to: intendedNextPos,
+                            distance: distanceToTarget,
+                            angle: relativeAngle
+                        });
+                    }
+
+                    // Sort by distance first, then by clockwise angle
+                    enemyUpdates.sort((a, b) => {
+                        if (a.distance !== b.distance) {
+                            return a.distance - b.distance; // Closer enemies first
+                        }
+                        return a.angle - b.angle; // Clockwise from spell direction
+                    });
+
+                    // Process enemies in priority order
+                    for (const update of enemyUpdates) {
+                        const { enemy, from, to } = update;
+                        
                         // 1. Check for Map Edge Block (LOSS)
-                        if (!isTileValid(intendedNextPos.x, intendedNextPos.y)) {
-                            if (intendedNextPos.x !== enemyPosBeforeAttraction.x || intendedNextPos.y !== enemyPosBeforeAttraction.y) {
+                        if (!isTileValid(to.x, to.y)) {
+                            if (to.x !== from.x || to.y !== from.y) {
                                 gameState.lossDetails = { 
                                     isLoss: true, 
                                     unit: `Enemy ${enemy.id}`, 
                                     reason: 'Attraction Blocked',
-                                    from: enemyPosBeforeAttraction, 
-                                    to: intendedNextPos 
+                                    from: from, 
+                                    to: to 
                                 };
                                 gameState.heroStats.hp = 0;
                                 immediateLoss = true;
                                 break;
                             }
-                        } else if (intendedNextPos.x === heroPos.x && intendedNextPos.y === heroPos.y) {
+                        } else if (to.x === heroPos.x && to.y === heroPos.y) {
                             // 2. Check for Hero Block (STOPS MOVEMENT)
-                            if (intendedNextPos.x !== enemyPosBeforeAttraction.x || intendedNextPos.y !== enemyPosBeforeAttraction.y) {
+                            if (to.x !== from.x || to.y !== from.y) {
                                  console.log(`Enemy ${enemy.id} Immobilism attraction blocked by hero.`);
                             }
                             // Enemy stays put
                         } else {
-                            // 3. Move is valid and safe, update position
-                            enemy.position = intendedNextPos;
+                            // 3. Check for collision with other enemies
+                            const collisionWithEnemy = gameState.enemies.some(otherEnemy => 
+                                otherEnemy.isAlive && 
+                                otherEnemy.id !== enemy.id && 
+                                otherEnemy.position.x === to.x && 
+                                otherEnemy.position.y === to.y
+                            );
+                            
+                            if (collisionWithEnemy) {
+                                // 4. Enemy collision (LOSS)
+                                gameState.lossDetails = { 
+                                    isLoss: true, 
+                                    unit: `Enemy ${enemy.id}`, 
+                                    reason: 'Enemy Collision',
+                                    from: from, 
+                                    to: to 
+                                };
+                                gameState.heroStats.hp = 0;
+                                immediateLoss = true;
+                                break;
+                            } else {
+                                // 5. Move is valid and safe, update position
+                                enemy.position = to;
+                            }
                         }
                     }
                 }
@@ -1021,7 +1124,6 @@
             clearTemporaryHighlights();
             
             gameState.hoveredTile = null;
-            document.getElementById(`spell${spellId}`).classList.remove('spell-icon-active');
             CANVAS.style.cursor = 'default';
             render();
             checkWinCondition(); 
@@ -1118,6 +1220,8 @@
                     msg = "An enemy's pushback was blocked by the map boundary.";
                 } else if (reason === 'Attraction Blocked') {
                     msg = "An enemy's attraction was blocked by the map boundary.";
+                } else if (reason === 'Enemy Collision') {
+                    msg = "An enemy collided with another enemy during attraction.";
                 } else if (reason === 'HP Loss') {
                     msg = `Your HP reached zero at the end of Turn ${gameState.turn - 1} before the start of the next turn.`;
                 }

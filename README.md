@@ -25,22 +25,23 @@ This basic js app is meant to be a simulator for the Bolgrot Encounter as part o
 - [-] Drills/exercises
   - [x] 1 flame (3 sq, 2 sq, 4 sq)
     - Some meta commentary here. I think the 3 sq scenario is the 'main' set up you want to aim for, and you effectively want to leverage Double Leap to turn the 2 and 4 sq scenarios into a 3 sq. I want this to be the core concept that gets introduced before introducing additional enemies
-  - [ ] 2 flame (chevron, pure diagonal, chain). Separate drill for the 3 skill (opposite diagonal)
+  - [x] 2 flame (chevron, pure diagonal, chain). Separate drill for the 3 skill (opposite diagonal)
   - [ ] 3 flame (pure diagonal, chevron + one fill)
 - [x] Add Immobilism
 
 ## Known bugs
-- 2 flame scenarios introduced but not validated [Possibly fixed]
+- [x] 2 flame scenarios introduced but not validated [Possibly fixed]
   - 2-1 spawning only opposite each other
   - 2-3 spawning 2-4 diagonals away, not the diagonals 2 and 4 diagonals away
   - 2-2 second enemy not purely adjacent
-  - Given that Gemini shit the bed before I had copied over some of the fixes above, I'll need to sanity check that
+- [x] Given that Gemini shit the bed before I had copied over some of the fixes above, I'll need to sanity check that
     - We do not lose landing next to an enemy while triggering elimination
     - Enemy colliding into another enemy causes loss
      - Cell highlighting on loss in the above scenario triggers proper highlighting
 
 ## Edge case testing
 - Looking at a video, Double Leap has a cross AoE rather than square. Can I leap into a diagonal from an enemy without losing?
+- Does Immobilism have an AP cost?
 
 ### Future goals
 - [ ] Menu/nav for drills vs sim
