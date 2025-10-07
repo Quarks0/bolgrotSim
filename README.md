@@ -38,11 +38,15 @@ This basic js app is meant to be a simulator for the Bolgrot Encounter as part o
     - We do not lose landing next to an enemy while triggering elimination
     - Enemy colliding into another enemy causes loss
      - Cell highlighting on loss in the above scenario triggers proper highlighting
-- [ ] 2-2 has a scenario where enemies merge when they should. Should either be a loss (unlikely) or if diagonal is taken we try a single unit attraction. Will need to explore this edge case
+- [ ] 2-2 has a scenario where enemies merge when they should not. Should either be a loss (unlikely) or if diagonal is taken we try a single unit attraction. Will need to explore this edge case
+  - I can't seem to reproduce this anymore
+- [ ] 3-3 knockback into enemy on elimination does not result in a loss
+- [ ] 2-2 has a scenario where you can Double Leap onto the back enemy (probably LoS should be blocked)
 
 ## Edge case testing
 - Looking at a video, Double Leap has a cross AoE rather than square. Can I leap into a diagonal from an enemy without losing?
 - Does Immobilism have an AP cost?
+- How does the attraction work with enemy collision? ie 2 in front, pull onto unit. 2 enemies linear, pull (one diag, one straight?)
 
 ### Future goals
 - [ ] Fight overview (Goal, mechanics)
