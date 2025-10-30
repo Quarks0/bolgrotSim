@@ -351,11 +351,20 @@
         const SPELL_DATA = {
             1: { costAP: 1, costHP: 1, range: 1, maxCharges: Infinity, name: 'Astral Leap', type: 'move' },
             2: { costAP: 2, costHP: 1, range: 2, maxCharges: 2, name: 'Double Leap', type: 'move' },
-            3: { costAP: 0, costHP: 5, range: 2, maxCharges: Infinity, name: 'Immobilism', type: 'attraction' }
+            3: { costAP: 1, costHP: 5, range: 2, maxCharges: Infinity, name: 'Immobilism', type: 'attraction' }
         };
 
         // Grid State Definitions:
-        const CASTABLE_STATES = [1, 3];
+        const GRID_STATE = {
+            DEFAULT: 0,
+            CASTING: 1,
+            CASTING_INVALID: 2,
+            PUSHBACK_PREVIEW: 3,
+            CASTING_AND_PUSHBACK_PREVIEW: 4,
+            LOSS_TRIGGER: 5,
+            LOSS_CONSEQUENCE: 6
+        };
+        const CASTABLE_STATES = [GRID_STATE.CASTING, GRID_STATE.CASTING_AND_PUSHBACK_PREVIEW];
         const BASE_HP = 20; 
         const HP_REFUND_ON_KILL = 1;
 
@@ -550,14 +559,14 @@
         }
         
         /**
-         * Clears all temporary grid highlights (states 0, 1, 2, 3) 
-         * but preserves permanent loss highlights (states 4, 5).
+         * Clears all temporary grid highlights (states 0, 1, 2, 3, 4) 
+         * but preserves permanent loss highlights (states 5, 6).
          */
         function clearTemporaryHighlights() {
             for (let x = 0; x < GRID_WIDTH; x++) {
                 for (let y = 0; y < GRID_HEIGHT; y++) {
-                    if (gameState.gridStates[x][y] < 4) {
-                        gameState.gridStates[x][y] = 0;
+                    if (gameState.gridStates[x][y] < GRID_STATE.LOSS_TRIGGER) {
+                        gameState.gridStates[x][y] = GRID_STATE.DEFAULT;
                     }
                 }
             }
@@ -811,18 +820,34 @@
                     { dx: 0, dy: 1 }, { dx: 0, dy: -1 }
                 ];
 
-                for (let r = 1; r <= spell.range; r++) {
-                    directions.forEach(({ dx, dy }) => {
+                // For each direction, check if path is blocked
+                directions.forEach(({ dx, dy }) => {
+                    let pathBlocked = false;
+                    
+                    for (let r = 1; r <= spell.range; r++) {
                         const targetX = heroX + dx * r;
                         const targetY = heroY + dy * r;
 
                         if (isTileValid(targetX, targetY)) {
-                            if (gameState.gridStates[targetX][targetY] < 4) { 
-                                gameState.gridStates[targetX][targetY] = 1;
+                            // Mark tiles in range based on path status
+                            if (gameState.gridStates[targetX][targetY] < GRID_STATE.LOSS_TRIGGER) { 
+                                if (pathBlocked) {
+                                    // Tile is in range but path is blocked
+                                    gameState.gridStates[targetX][targetY] = GRID_STATE.CASTING_INVALID;
+                                } else {
+                                    // Tile is valid for casting
+                                    gameState.gridStates[targetX][targetY] = GRID_STATE.CASTING;
+                                }
+                            }
+                            
+                            // Check if there's an enemy at this position AFTER setting the state
+                            // This allows the enemy tile itself to be valid, but blocks beyond it
+                            if (isTileOccupied(targetX, targetY)) {
+                                pathBlocked = true;
                             }
                         }
-                    });
-                }
+                    }
+                });
             } else if (spell.type === 'attraction') { 
                 // Immobilism (Spell 3) - Diagonal 1-square range (Range 2 Manhattan distance)
                 const possibleTargets = [
@@ -835,8 +860,8 @@
                     const targetY = heroY + dy;
                     
                     if (isTileValid(targetX, targetY)) {
-                        if (gameState.gridStates[targetX][targetY] < 4) { 
-                            gameState.gridStates[targetX][targetY] = 1;
+                        if (gameState.gridStates[targetX][targetY] < GRID_STATE.LOSS_TRIGGER) { 
+                            gameState.gridStates[targetX][targetY] = GRID_STATE.CASTING;
                         }
                     }
                 });
@@ -847,11 +872,11 @@
             // Only applies to Movement spells (1, 2)
             if (SPELL_DATA[gameState.spellSelected]?.type !== 'move') return;
 
-            // Clear only the pushback highlights (State 2 and 3) before recalculating
+            // Clear only the pushback highlights (State 3 and 4) before recalculating
             for (let x = 0; x < GRID_WIDTH; x++) {
                 for (let y = 0; y < GRID_HEIGHT; y++) {
-                    if (gameState.gridStates[x][y] === 2 || gameState.gridStates[x][y] === 3) {
-                        gameState.gridStates[x][y] = gameState.gridStates[x][y] === 3 ? 1 : 0;
+                    if (gameState.gridStates[x][y] === GRID_STATE.PUSHBACK_PREVIEW || gameState.gridStates[x][y] === GRID_STATE.CASTING_AND_PUSHBACK_PREVIEW) {
+                        gameState.gridStates[x][y] = gameState.gridStates[x][y] === GRID_STATE.CASTING_AND_PUSHBACK_PREVIEW ? GRID_STATE.CASTING : GRID_STATE.DEFAULT;
                     }
                 }
             }
@@ -865,12 +890,12 @@
                     if (isTileValid(highlightX, highlightY)) {
                          const currentState = gameState.gridStates[highlightX][highlightY];
 
-                         if (currentState === 1) {
-                             // Tile is castable range. Upgrade to state 3 (Castable + Red Highlight)
-                             gameState.gridStates[highlightX][highlightY] = 3;
-                         } else if (currentState === 0) {
-                             // Tile is default. Change it to state 2 (Red Highlight Only)
-                             gameState.gridStates[highlightX][highlightY] = 2;
+                         if (currentState === GRID_STATE.CASTING) {
+                             // Tile is castable range. Upgrade to state 4 (Castable + Red Highlight)
+                             gameState.gridStates[highlightX][highlightY] = GRID_STATE.CASTING_AND_PUSHBACK_PREVIEW;
+                         } else if (currentState === GRID_STATE.DEFAULT) {
+                             // Tile is default. Change it to state 3 (Red Highlight Only)
+                             gameState.gridStates[highlightX][highlightY] = GRID_STATE.PUSHBACK_PREVIEW;
                          }
                     }
                 }
@@ -1269,7 +1294,7 @@
         function resetGridStates() {
             for (let x = 0; x < GRID_WIDTH; x++) {
                 for (let y = 0; y < GRID_HEIGHT; y++) {
-                    gameState.gridStates[x][y] = 0;
+                    gameState.gridStates[x][y] = GRID_STATE.DEFAULT;
                 }
             }
         }
@@ -1307,17 +1332,17 @@
                     msg = `Your HP reached zero during turn ${gameState.turn - 1}.`;
                 }
                 
-                // State 4 (Triggering Unit/Start) -> BLUE is always set for the trigger unit
+                // State 5 (Triggering Unit/Start) -> BLUE is always set for the trigger unit
                 if (from) {
-                     gameState.gridStates[from.x][from.y] = 4;
+                     gameState.gridStates[from.x][from.y] = GRID_STATE.LOSS_TRIGGER;
                 }
                
-                // State 5 (Consequence/Problem) -> RED is only set if 'to' is defined AND valid
+                // State 6 (Consequence/Problem) -> RED is only set if 'to' is defined AND valid
                 if (to && !isTileValid(to.x, to.y)) { 
                     // For off-map destination, we can't draw the tile, so we just log the coordinates.
                 } else if (to && isTileValid(to.x, to.y)) {
                      // For on-map destinations (like Adjacent Landing), highlight the target cell.
-                     gameState.gridStates[to.x][to.y] = 5;
+                     gameState.gridStates[to.x][to.y] = GRID_STATE.LOSS_CONSEQUENCE;
                 }
 
                 showBanner(title, msg, 'loss', true); 
@@ -1358,7 +1383,7 @@
                 spellCharges: { 1: Infinity, 2: scenarioData.initialCharges, 3: Infinity },
                 hoveredTile: null,
                 lossDetails: { isLoss: false, unit: null, reason: null, from: null, to: null },
-                gridStates: Array(GRID_WIDTH).fill(0).map(() => Array(GRID_HEIGHT).fill(0)),
+                gridStates: Array(GRID_WIDTH).fill(GRID_STATE.DEFAULT).map(() => Array(GRID_HEIGHT).fill(GRID_STATE.DEFAULT)),
                 currentScenario: scenarioData 
             };
             
@@ -1406,19 +1431,22 @@
                     const state = gameState.gridStates[x][y];
                     let alpha = 0.7; // Default alpha for non-final states
 
-                    // Check for highlights: State 1 (Blue), State 2 or 3 (Red Preview)
-                    if (state === 1) {
+                    // Check for highlights: State 1 (Blue), State 2 (Blue Invalid), State 3 or 4 (Red Preview)
+                    if (state === GRID_STATE.CASTING) {
                         fillColor = '#3b82f6'; // State 1: Cast Range (Blue)
-                    } else if (state === 2 || state === 3) {
-                        // State 2/3: Pushback Highlight (Red Preview)
+                    } else if (state === GRID_STATE.CASTING_INVALID) {
+                        fillColor = '#3b82f6'; // State 2: Cast Range Invalid (Blue, faded)
+                        alpha = 0.3; // Reduced opacity to show invalidity
+                    } else if (state === GRID_STATE.PUSHBACK_PREVIEW || state === GRID_STATE.CASTING_AND_PUSHBACK_PREVIEW) {
+                        // State 3/4: Pushback Highlight (Red Preview)
                         fillColor = 'rgba(239, 68, 68, 0.8)'; 
                     }
                     
-                    // Check for Permanent Loss Highlights (4 and 5)
-                    if (state === 4) { // Triggering Unit/Start (BLUE, OPAQUE)
+                    // Check for Permanent Loss Highlights (5 and 6)
+                    if (state === GRID_STATE.LOSS_TRIGGER) { // Triggering Unit/Start (BLUE, OPAQUE)
                         fillColor = '#3b82f6'; 
                         alpha = 1.0; 
-                    } else if (state === 5) { // Consequence/Problem (RED, OPAQUE)
+                    } else if (state === GRID_STATE.LOSS_CONSEQUENCE) { // Consequence/Problem (RED, OPAQUE)
                         fillColor = 'rgba(239, 68, 68, 1.0)'; 
                         alpha = 1.0; 
                     }
@@ -1495,15 +1523,15 @@
                     // Clear temporary pushback highlights if not hovering over a castable tile
                     for (let x = 0; x < GRID_WIDTH; x++) {
                         for (let y = 0; y < GRID_HEIGHT; y++) {
-                            // Only clear states 2 and 3, resetting 3 to 1 if it was a castable tile
-                            if (gameState.gridStates[x][y] === 2 || gameState.gridStates[x][y] === 3) {
-                                gameState.gridStates[x][y] = gameState.gridStates[x][y] === 3 ? 1 : 0;
+                            // Only clear states 3 and 4, resetting 4 to 1 if it was a castable tile
+                            if (gameState.gridStates[x][y] === GRID_STATE.PUSHBACK_PREVIEW || gameState.gridStates[x][y] === GRID_STATE.CASTING_AND_PUSHBACK_PREVIEW) {
+                                gameState.gridStates[x][y] = gameState.gridStates[x][y] === GRID_STATE.CASTING_AND_PUSHBACK_PREVIEW ? GRID_STATE.CASTING : GRID_STATE.DEFAULT;
                             }
                         }
                     }
                 }
             } else if (gameState.heroStats.hp > 0 && !selectedSpell) {
-                // If HP > 0 but no spell selected, ensure only the background states (0) or permanent loss states (4, 5) remain
+                // If HP > 0 but no spell selected, ensure only the background states (0) or permanent loss states (5, 6) remain
                 clearTemporaryHighlights();
             }
             

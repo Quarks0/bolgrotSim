@@ -18,12 +18,10 @@ This basic js app is meant to be a simulator for the Bolgrot Encounter as part o
   - Being 3 squares away is good. Avoid diagonals with enemies. Adjacent enemies are good. Warning against immobilism.
 
 ## Known bugs
-- [ ] 2-2 has a scenario where you can Double Leap onto the back enemy (probably LoS should be blocked)
 - [ ] 3-3 Douple leaping to get the diagonal enemies to line up is resulting in a merge - should this result in a loss or should the attraction step result in a 1 sq move rather than 2 on a diagonal (worth edge case check somehow)
 
 ## Edge case testing
 - Looking at a video, Double Leap has a cross AoE rather than square. Can I leap into a diagonal from an enemy without losing?
-- Does Immobilism have an AP cost?
 - How does the attraction work with enemy collision? ie 2 in front, pull onto unit. 2 enemies linear, pull (one diag, one straight?) (2-2, double leap into attract)
 
 ### Future goals
