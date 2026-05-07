@@ -579,7 +579,6 @@
             const dx = Math.sign(unitX - landingX); 
             const dy = Math.sign(unitY - landingY); 
 
-            debugger;
             if (dx === 0 && dy === 0) return null;
             
             const targetX = unitX + dx;
@@ -659,8 +658,8 @@
 
             if (absDx === absDy) {
                 // Case: Perfectly diagonal (e.g., 2,2 or 3,3). Move 1 square in each axis (total 2 squares).
-                moveX = Math.sign(dx) * 1; 
-                moveY = Math.sign(dy) * 1; 
+                moveX = Math.sign(dx);
+                moveY = Math.sign(dy);
             } else if (absDx > absDy) {
                 // Case: Longer delta on X. Move 1 square on the X axis.
                 moveX = Math.sign(dx) * 1;
@@ -722,7 +721,7 @@
          * Generates the initial array of enemies based on the scenario configuration.
          */
         function generateEnemies(heroPos, config) {
-            let enemies = [];
+            const enemies = [];
             let idCounter = 1;
 
             for (const conf of config) {
@@ -1045,67 +1044,67 @@
                         let pushbackApplied = false;
                         let newEnemyPos = { x: ex, y: ey };
 
-                    if (Math.abs(dx_to_landing) <= 1 && Math.abs(dy_to_landing) <= 1) {
-                        const pushbackTarget = getPushbackTarget(ex, ey, hx, hy);
-                        
-                        if (!pushbackTarget) {
-                            // PUSHBACK BLOCK LOSS CHECK
-                            gameState.lossDetails = { 
-                                isLoss: true, 
-                                unit: `Enemy ${enemy.id}`, 
-                                reason: 'Pushback Blocked',
-                                from: {x: ex, y: ey}, 
-                                to: getPushbackTargetPreview(ex, ey, hx, hy)
-                            };
-                            gameState.heroStats.hp = 0;
-                            immediateLoss = true;
-                            break;
-                        } else {
-                            newEnemyPos = pushbackTarget;
-                            pushbackApplied = true;
-                        }
-                    }
-                    
-                    // --- STOP if LOSS occurred after Pushback ---
-                    if (immediateLoss) break;
+                        if (Math.abs(dx_to_landing) <= 1 && Math.abs(dy_to_landing) <= 1) {
+                            const pushbackTarget = getPushbackTarget(ex, ey, hx, hy);
 
-                    // 3c. Apply Attraction Phase
-                    let enemyPosBeforeAttraction = pushbackApplied ? newEnemyPos : enemy.position;
-                    
-                    // Attraction uses the single-step (diagonal-preferring) movement towards HERO
-                    const intendedNextPos = calculateSingleStepAttraction(enemyPosBeforeAttraction, gameState.heroPosition);
-                    
-                    // Attraction Blocked (Off Map)
-                    if (!isTileValid(intendedNextPos.x, intendedNextPos.y)) {
-                        if (intendedNextPos.x !== enemyPosBeforeAttraction.x || intendedNextPos.y !== enemyPosBeforeAttraction.y) {
-                            gameState.lossDetails = { 
-                                isLoss: true, 
-                                unit: `Enemy ${enemy.id}`, 
-                                reason: 'Attraction Blocked',
-                                from: enemyPosBeforeAttraction, 
-                                to: intendedNextPos 
-                            };
-                            gameState.heroStats.hp = 0; 
-                            immediateLoss = true;
-                            break;
+                            if (!pushbackTarget) {
+                                // PUSHBACK BLOCK LOSS CHECK
+                                gameState.lossDetails = {
+                                    isLoss: true,
+                                    unit: `Enemy ${enemy.id}`,
+                                    reason: 'Pushback Blocked',
+                                    from: {x: ex, y: ey},
+                                    to: getPushbackTargetPreview(ex, ey, hx, hy)
+                                };
+                                gameState.heroStats.hp = 0;
+                                immediateLoss = true;
+                                break;
+                            } else {
+                                newEnemyPos = pushbackTarget;
+                                pushbackApplied = true;
+                            }
                         }
-                    } 
-                    // Attraction onto Hero (Elimination/Kill)
-                    else if (intendedNextPos.x === gameState.heroPosition.x && intendedNextPos.y === gameState.heroPosition.y) {
-                        enemy.isAlive = false;
-                        enemiesKilledThisTurn++;
-                    } 
-                    // Normal Attraction Move
-                    else {
-                        if (intendedNextPos.x !== enemyPosBeforeAttraction.x || intendedNextPos.y !== enemyPosBeforeAttraction.y) {
-                            enemy.position = intendedNextPos;
-                        }
-                    }
 
-                    // If pushback was applied and no attraction move happened, ensure the pushback position is saved
-                    if (pushbackApplied && intendedNextPos.x === enemyPosBeforeAttraction.x && intendedNextPos.y === enemyPosBeforeAttraction.y) {
-                        enemy.position = newEnemyPos; 
-                    }
+                        // --- STOP if LOSS occurred after Pushback ---
+                        if (immediateLoss) break;
+
+                        // 3c. Apply Attraction Phase
+                        let enemyPosBeforeAttraction = pushbackApplied ? newEnemyPos : enemy.position;
+
+                        // Attraction uses the single-step (diagonal-preferring) movement towards HERO
+                        const intendedNextPos = calculateSingleStepAttraction(enemyPosBeforeAttraction, gameState.heroPosition);
+
+                        // Attraction Blocked (Off Map)
+                        if (!isTileValid(intendedNextPos.x, intendedNextPos.y)) {
+                            if (intendedNextPos.x !== enemyPosBeforeAttraction.x || intendedNextPos.y !== enemyPosBeforeAttraction.y) {
+                                gameState.lossDetails = {
+                                    isLoss: true,
+                                    unit: `Enemy ${enemy.id}`,
+                                    reason: 'Attraction Blocked',
+                                    from: enemyPosBeforeAttraction,
+                                    to: intendedNextPos
+                                };
+                                gameState.heroStats.hp = 0;
+                                immediateLoss = true;
+                                break;
+                            }
+                        }
+                        // Attraction onto Hero (Elimination/Kill)
+                        else if (intendedNextPos.x === gameState.heroPosition.x && intendedNextPos.y === gameState.heroPosition.y) {
+                            enemy.isAlive = false;
+                            enemiesKilledThisTurn++;
+                        }
+                        // Normal Attraction Move
+                        else {
+                            if (intendedNextPos.x !== enemyPosBeforeAttraction.x || intendedNextPos.y !== enemyPosBeforeAttraction.y) {
+                                enemy.position = intendedNextPos;
+                            }
+                        }
+
+                        // If pushback was applied and no attraction move happened, ensure the pushback position is saved
+                        if (pushbackApplied && intendedNextPos.x === enemyPosBeforeAttraction.x && intendedNextPos.y === enemyPosBeforeAttraction.y) {
+                            enemy.position = newEnemyPos;
+                        }
                     } // End Phase 3 Enemy Interactions Loop
                 } // End if (!immediateLoss)
 
@@ -1250,10 +1249,7 @@
             gameState.heroStats.ap = gameState.heroStats.maxAp;
             gameState.spellCharges[2] = SPELL_DATA[2].maxCharges; 
             
-            // Ensure no spell is left selected
-            if (gameState.spellSelected !== 0) {
-                gameState.spellSelected = 0;
-            }
+            gameState.spellSelected = 0;
             
             clearTemporaryHighlights(); // Use non-destructive clear
             
@@ -1277,11 +1273,7 @@
                 banner.classList.add('banner-loss');
             }
             
-            if (showRetryButton) {
-                retryButton.classList.remove('hidden');
-            } else {
-                retryButton.classList.add('hidden');
-            }
+            retryButton.classList.toggle('hidden', !showRetryButton);
         }
 
         function hideBanner() {
@@ -1592,10 +1584,8 @@
         document.addEventListener('keydown', (event) => {
             if (gameState.heroStats.hp <= 0) return;
             
-            const key = parseInt(event.key);
-            if (key >= 1 && key <= 3) {
-                const spellId = key;
-                
+            const spellId = parseInt(event.key);
+            if (spellId >= 1 && spellId <= 3) {
                 // Attempt to cast if the spell is already selected and we have a target
                 if (gameState.spellSelected === spellId && gameState.hoveredTile && CASTABLE_STATES.includes(gameState.gridStates[gameState.hoveredTile.x][gameState.hoveredTile.y])) {
                     castSpell(gameState.hoveredTile.x, gameState.hoveredTile.y);
