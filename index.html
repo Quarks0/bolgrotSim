@@ -1037,9 +1037,24 @@
                 }
 
                 // Phase 3: Continue with pushback and attraction for remaining alive enemies
+                // Process closest enemies first; ties broken clockwise from screen-right (up+right in iso)
                 if (!immediateLoss) {
-                    for (let enemy of gameState.enemies) {
-                        if (!enemy.isAlive) continue;
+                    const heroScreen = isoToScreen(gameState.heroPosition.x, gameState.heroPosition.y);
+                    const sortedEnemies = gameState.enemies.filter(e => e.isAlive).sort((a, b) => {
+                        const distA = Math.abs(a.position.x - gameState.heroPosition.x) + Math.abs(a.position.y - gameState.heroPosition.y);
+                        const distB = Math.abs(b.position.x - gameState.heroPosition.x) + Math.abs(b.position.y - gameState.heroPosition.y);
+                        if (distA !== distB) return distA - distB;
+                        const aScr = isoToScreen(a.position.x, a.position.y);
+                        const bScr = isoToScreen(b.position.x, b.position.y);
+                        let angA = Math.atan2(aScr.y - heroScreen.y, aScr.x - heroScreen.x);
+                        let angB = Math.atan2(bScr.y - heroScreen.y, bScr.x - heroScreen.x);
+                        if (angA < 0) angA += 2 * Math.PI;
+                        if (angB < 0) angB += 2 * Math.PI;
+                        return angA - angB;
+                    });
+
+                    const attractionMoves = new Map();
+                    for (const enemy of sortedEnemies) {
 
                         // 3b. Apply Pushback (only if enemy is adjacent to landing tile)
                         const { x: ex, y: ey } = enemy.position;
@@ -1102,8 +1117,40 @@
                         }
                         // Normal Attraction Move
                         else {
-                            if (intendedNextPos.x !== enemyPosBeforeAttraction.x || intendedNextPos.y !== enemyPosBeforeAttraction.y) {
-                                enemy.position = intendedNextPos;
+                            const dx = intendedNextPos.x - enemyPosBeforeAttraction.x;
+                            const dy = intendedNextPos.y - enemyPosBeforeAttraction.y;
+
+                            if (dx !== 0 || dy !== 0) {
+                                const blocker = gameState.enemies.find(other =>
+                                    other.isAlive && other.id !== enemy.id &&
+                                    other.position.x === intendedNextPos.x &&
+                                    other.position.y === intendedNextPos.y
+                                );
+
+                                if (blocker) {
+                                    // Mirror the blocking enemy's actual attraction move
+                                    const mirror = attractionMoves.get(blocker.id) ?? { dx: 0, dy: 0 };
+                                    const mirroredPos = {
+                                        x: enemyPosBeforeAttraction.x + mirror.dx,
+                                        y: enemyPosBeforeAttraction.y + mirror.dy
+                                    };
+                                    const heroPos = gameState.heroPosition;
+                                    const mirrorFree = isTileValid(mirroredPos.x, mirroredPos.y) &&
+                                        !isTileOccupied(mirroredPos.x, mirroredPos.y) &&
+                                        !(mirroredPos.x === heroPos.x && mirroredPos.y === heroPos.y);
+
+                                    if (mirrorFree && (mirror.dx !== 0 || mirror.dy !== 0)) {
+                                        enemy.position = mirroredPos;
+                                        attractionMoves.set(enemy.id, mirror);
+                                    } else {
+                                        attractionMoves.set(enemy.id, { dx: 0, dy: 0 });
+                                    }
+                                } else {
+                                    enemy.position = intendedNextPos;
+                                    attractionMoves.set(enemy.id, { dx, dy });
+                                }
+                            } else {
+                                attractionMoves.set(enemy.id, { dx: 0, dy: 0 });
                             }
                         }
 
