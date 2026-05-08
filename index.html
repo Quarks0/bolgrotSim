@@ -16,28 +16,24 @@
     <script src="https://cdn.tailwindcss.com"></script>
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600,700,800&display=swap" rel="stylesheet">
     <style>
-        /* Using custom CSS for the centered layout */
         body {
             font-family: 'Inter', sans-serif;
             background-color: #0d1117;
             display: flex;
-            justify-content: flex-start;
-            align-items: center;
-            min-height: 100vh;
-            margin: 0;
-            padding: 2rem;
             flex-direction: column;
+            align-items: center;
+            height: 100dvh;
+            margin: 0;
+            padding: 1rem;
             color: #d1d5db;
-            width: 100%;
-            overflow-x: auto;
+            overflow: hidden;
         }
         #app-container {
             position: relative; /* CRITICAL: Allows absolute positioning of children */
             box-shadow: 0 10px 30px rgba(0, 0, 0, 0.7);
             border-radius: 12px;
-            display: flex; 
+            display: flex;
             flex-direction: column;
-            overflow: hidden; 
             border: 4px solid #1f2937;
             background-color: #1f2937; 
         }
@@ -73,6 +69,8 @@
         /* Tooltip for spell buttons */
         .spell-container {
             position: relative;
+            display: flex;
+            align-items: center;
         }
         
         .spell-tooltip {
@@ -187,63 +185,101 @@
             background-color: #fcd34d; /* Yellow-300 */
             color: #1f2937;
         }
+        .modal-overlay {
+            position: fixed;
+            inset: 0;
+            background-color: rgba(0, 0, 0, 0.7);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            z-index: 100;
+        }
+        .modal-overlay.hidden {
+            display: none !important;
+        }
+        .modal-box {
+            background-color: #1f2937;
+            border: 2px solid #374151;
+            border-radius: 12px;
+            padding: 24px;
+            max-width: 480px;
+            width: 90%;
+            box-shadow: 0 20px 40px rgba(0, 0, 0, 0.6);
+        }
+        .modal-close-btn {
+            display: block;
+            padding: 6px 20px;
+            font-size: 14px;
+            font-weight: bold;
+            border-radius: 6px;
+            background-color: #374151;
+            color: #d1d5db;
+            transition: background-color 0.15s;
+        }
+        .modal-close-btn:hover {
+            background-color: #4b5563;
+        }
     </style>
 </head>
 <body class="p-4">
 
-    <div class="text-center mb-6">
-        <h1 class="text-3xl font-bold text-yellow-300">Bolgrot's Spirit Simulator</h1>
-        <p class="text-gray-400">The goal of this tool is to help players familiarize with the abilities and mechanics of the Fire Extinction encounter without the energy and death walk downtime. I also try to provide a failure reason, which was one of the biggest hurdles when personally learning the encounter.</p>
-        <p class="text-gray-400">The scenarios include a variety of # enemies as well as semi-random starting positions. It's worth re-attempting the 'level' a few times to familiarize with the fight mechanics.</p>
+    <!-- Top bar: title left, controls center-left, info buttons right -->
+    <div id="top-bar" class="flex items-center justify-between w-full mb-3 gap-4 flex-wrap">
+        <h1 class="text-2xl font-bold text-yellow-300 whitespace-nowrap">Bolgrot's Spirit Simulator</h1>
+
+        <!-- Game controls (left-of-center) -->
+        <div class="flex items-center gap-3 flex-wrap">
+            <div class="flex items-center gap-2">
+                <label for="enemy-count-select" class="text-gray-300 font-semibold text-sm">Enemies</label>
+                <select id="enemy-count-select" class="bg-gray-700 text-white font-bold rounded-lg px-3 py-2 border border-gray-500 focus:outline-none focus:border-yellow-300">
+                    <option value="1">1</option>
+                    <option value="2" selected>2</option>
+                    <option value="3">3</option>
+                    <option value="4">4</option>
+                </select>
+            </div>
+            <div class="flex items-center gap-2">
+                <label for="arrangement-select" class="text-gray-300 font-semibold text-sm">Arrangement</label>
+                <select id="arrangement-select" class="bg-gray-700 text-white font-bold rounded-lg px-3 py-2 border border-gray-500 focus:outline-none focus:border-yellow-300">
+                    <option value="scattered">Scattered</option>
+                    <option value="diagonal">Diagonal</option>
+                    <option value="aligned">Aligned</option>
+                    <option value="chained">Chained</option>
+                </select>
+            </div>
+            <button onclick="startNewGame()"
+                class="h-10 px-5 font-bold text-gray-900 bg-yellow-300 hover:bg-yellow-400 rounded-lg shadow-md transition duration-150 ease-in-out">
+                New Game
+            </button>
+        </div>
+
+        <!-- Info buttons (right) -->
+        <div class="flex items-center gap-2">
+            <button onclick="openModal('about-modal')"
+                class="px-4 py-1.5 text-sm font-semibold text-gray-200 bg-gray-700 hover:bg-gray-600 border border-gray-500 rounded-lg transition duration-150">
+                About
+            </button>
+        </div>
     </div>
-    
-    <!-- Drill Control Buttons -->
-    <div id="drill-controls" class="flex justify-center space-x-2 mb-4 w-full flex-wrap">
-        <!-- Scenario 1-X Buttons -->
-        <button id="scenario1-btn" onclick="resetGame(SCENARIO_1_1_DATA)" 
-            class="w-16 h-12 font-bold text-white bg-blue-600 hover:bg-blue-700 rounded-lg shadow-md transition duration-150 ease-in-out">
-            1-1
-        </button>
-        <button id="scenario2-btn" onclick="resetGame(SCENARIO_1_2_DATA)" 
-            class="w-16 h-12 font-bold text-white bg-purple-600 hover:bg-purple-700 rounded-lg shadow-md transition duration-150 ease-in-out">
-            1-2
-        </button>
-        <button id="scenario3-btn" onclick="resetGame(SCENARIO_1_3_DATA)" 
-            class="w-16 h-12 font-bold text-white bg-red-600 hover:bg-red-700 rounded-lg shadow-md transition duration-150 ease-in-out">
-            1-3
-        </button>
 
-        <div class="w-2 h-0"></div> <!-- Small separator -->
-        
-        <!-- Scenario 2-X Buttons -->
-        <button id="scenario2-1-btn" onclick="resetGame(SCENARIO_2_1_DATA)" 
-            class="w-16 h-12 font-bold text-white bg-green-600 hover:bg-green-700 rounded-lg shadow-md transition duration-150 ease-in-out">
-            2-1
-        </button>
-        <button id="scenario2-2-btn" onclick="resetGame(SCENARIO_2_2_DATA)" 
-            class="w-16 h-12 font-bold text-white bg-indigo-600 hover:bg-indigo-700 rounded-lg shadow-md transition duration-150 ease-in-out">
-            2-2
-        </button>
-        <button id="scenario2-3-btn" onclick="resetGame(SCENARIO_2_3_DATA)" 
-            class="w-16 h-12 font-bold text-white bg-pink-600 hover:bg-pink-700 rounded-lg shadow-md transition duration-150 ease-in-out">
-            2-3
-        </button>
+    <!-- About Modal -->
+    <div id="about-modal" class="modal-overlay hidden">
+        <div class="modal-box">
+            <h2 class="text-xl font-bold text-yellow-300 mb-3">About</h2>
+            <p class="text-gray-300 mb-3">The goal of this tool is to help players familiarize with the abilities and mechanics of the Fire Extinction encounter without the energy and death walk downtime. It also provides a failure reason, which was one of the biggest hurdles when personally learning the encounter.</p>
+            <p class="text-gray-300 mb-3">The scenarios include a variety of enemy counts and semi-random starting positions. It's worth re-attempting the same arrangement a few times to familiarize with the fight mechanics.</p>
+            <p class="text-gray-400 text-sm">Note: This is a non-commercial fan project that explores the mechanics of the Bolgrot's Spirit encounter as part of the Turquoise Dofus quest line.</p>
+            <button onclick="closeModal('about-modal')" class="modal-close-btn mt-4">Close</button>
+        </div>
+    </div>
 
-        <div class="w-2 h-0"></div> <!-- Small separator -->
-        
-        <!-- Scenario 3-X Buttons -->
-        <button id="scenario3-1-btn" onclick="resetGame(SCENARIO_3_1_DATA)" 
-            class="w-16 h-12 font-bold text-white bg-green-600 hover:bg-green-700 rounded-lg shadow-md transition duration-150 ease-in-out">
-            3-1
-        </button>
-        <button id="scenario3-2-btn" onclick="resetGame(SCENARIO_3_2_DATA)" 
-            class="w-16 h-12 font-bold text-white bg-indigo-600 hover:bg-indigo-700 rounded-lg shadow-md transition duration-150 ease-in-out">
-            3-2
-        </button>
-        <button id="scenario3-3-btn" onclick="resetGame(SCENARIO_3_3_DATA)" 
-            class="w-16 h-12 font-bold text-white bg-pink-600 hover:bg-pink-700 rounded-lg shadow-md transition duration-150 ease-in-out">
-            3-3
-        </button>
+    <!-- Objectives Modal (placeholder) -->
+    <div id="objectives-modal" class="modal-overlay hidden">
+        <div class="modal-box">
+            <h2 class="text-xl font-bold text-yellow-300 mb-3">Objectives</h2>
+            <p class="text-gray-400 italic">Coming soon.</p>
+            <button onclick="closeModal('objectives-modal')" class="modal-close-btn mt-4">Close</button>
+        </div>
     </div>
 
     <div id="app-container">
@@ -255,7 +291,7 @@
                 <p id="banner-message" class="banner-message"></p>
                 <button id="retry-button" class="retry-button hidden" 
                     onclick="resetGame(gameState.currentScenario)">
-                    Retry
+                    New Game
                 </button>
             </div>
         </div>
@@ -271,7 +307,7 @@
         </div>
 
         <!-- Spell Bar UI -->
-        <div id="spell-bar" class="flex justify-center items-center space-x-6 py-3 bg-gray-800 w-full border-t-2 border-gray-700">
+        <div id="spell-bar" class="flex justify-center items-center space-x-6 py-2 bg-gray-800 w-full border-t-2 border-gray-700">
             
             <!-- Spell 1: Astral Leap (Yellow/Orange) -->
             <div class="spell-container">
@@ -309,10 +345,71 @@
     </div>
 
     <footer class="mt-4 text-xs text-gray-500 max-w-lg text-center">
-    Note: This is a non-commercial fan project that explores the mechanics of the tricky Bolgrot's Spirit encounter as part of the Turquoise Dofus quest line.
+    Note: This is a non-commercial fan project that explores the mechanics of the Bolgrot's Spirit encounter as part of the Turquoise Dofus quest line.
     </footer>
 
     <script>
+        // --- Viewport Scaling ---
+
+        function resizeGame() {
+            const topBar = document.getElementById('top-bar');
+            const statusBar = document.getElementById('status-bar');
+            const spellBar = document.getElementById('spell-bar');
+            const footer = document.querySelector('footer');
+
+            const bodyPadding = 32; // 1rem top + 1rem bottom
+            const topBarH = topBar.offsetHeight + 12; // + mb-3
+            const footerH = footer ? footer.offsetHeight + 16 : 0; // + mt-4
+            const fixedH = bodyPadding + topBarH + footerH +
+                           statusBar.offsetHeight + spellBar.offsetHeight;
+
+            const availH = window.innerHeight - fixedH;
+            const availW = window.innerWidth - bodyPadding;
+
+            const BASE_W = 1400, BASE_H = 700;
+            const scale = Math.min(availW / BASE_W, availH / BASE_H);
+
+            CANVAS_WIDTH  = Math.round(BASE_W * scale);
+            CANVAS_HEIGHT = Math.round(BASE_H * scale);
+            TILE_WIDTH    = Math.round(120 * scale);
+            TILE_HEIGHT   = Math.round(60  * scale);
+            X_OFFSET      = CANVAS_WIDTH / 2;
+            Y_OFFSET      = Math.round(100 * scale);
+            HERO_UNIT_RADIUS = Math.round(15 * scale);
+
+            CANVAS.width  = CANVAS_WIDTH;
+            CANVAS.height = CANVAS_HEIGHT;
+        }
+
+        const debouncedResize = debounce(() => {
+            resizeGame();
+            if (gameState.heroPosition) render();
+        }, 100);
+
+        window.addEventListener('resize', debouncedResize);
+
+        // --- Modal Functions ---
+
+        function openModal(id) {
+            document.getElementById(id).classList.remove('hidden');
+        }
+
+        function closeModal(id) {
+            document.getElementById(id).classList.add('hidden');
+        }
+
+        document.addEventListener('keydown', (event) => {
+            if (event.key === 'Escape') {
+                document.querySelectorAll('.modal-overlay:not(.hidden)').forEach(m => m.classList.add('hidden'));
+            }
+        });
+
+        document.querySelectorAll('.modal-overlay').forEach(overlay => {
+            overlay.addEventListener('click', (e) => {
+                if (e.target === overlay) overlay.classList.add('hidden');
+            });
+        });
+
         // --- Utility Functions ---
 
         /**
@@ -330,22 +427,13 @@
         // --- Configuration ---
         const GRID_WIDTH = 10;
         const GRID_HEIGHT = 10;
-        const CANVAS_WIDTH = 1400;
-        const CANVAS_HEIGHT = 700;
-        
+
         // Canvas and Context setup
         const CANVAS = document.getElementById('gameCanvas');
-        CANVAS.width = CANVAS_WIDTH;
-        CANVAS.height = CANVAS_HEIGHT;
         const CTX = CANVAS.getContext('2d');
 
-        // Grid and Tile Dimensions
-        const TILE_WIDTH = 120;
-        const TILE_HEIGHT = 60;
-        
-        // Offset to center the grid on the canvas
-        const X_OFFSET = CANVAS_WIDTH / 2;
-        const Y_OFFSET = 100;
+        // These are calculated dynamically by resizeGame() before first render
+        let CANVAS_WIDTH, CANVAS_HEIGHT, TILE_WIDTH, TILE_HEIGHT, X_OFFSET, Y_OFFSET;
 
         // Spell definitions
         const SPELL_DATA = {
@@ -368,139 +456,57 @@
         const BASE_HP = 20; 
         const HP_REFUND_ON_KILL = 1;
 
-        // --- Scenario Data ---
-        // Single Enemy Scenarios (1-X)
-        const SCENARIO_1_1_DATA = {
-            id: '1-1',
-            heroPosition: { x: 5, y: 5 },
-            initialHp: BASE_HP,
-            initialAp: 10,
-            initialCharges: SPELL_DATA[2].maxCharges,
-            turn: 1,
-            enemyConfig: [
-                { type: 'random', distance: [3], mode: 'manhattan' }
-            ]
-        };
+        // --- Scenario Generation ---
 
-        const SCENARIO_1_2_DATA = {
-            id: '1-2',
-            heroPosition: { x: 5, y: 5 },
-            initialHp: BASE_HP,
-            initialAp: 10,
-            initialCharges: SPELL_DATA[2].maxCharges,
-            turn: 1,
-            enemyConfig: [
-                { type: 'random', distance: [2], mode: 'manhattan' }
-            ]
-        };
+        function buildScenarioConfig(enemyCount, arrangement) {
+            const heroPosition = { x: 5, y: 5 };
+            let enemyConfig = [];
 
-        const SCENARIO_1_3_DATA = {
-            id: '1-3',
-            heroPosition: { x: 5, y: 5 },
-            initialHp: BASE_HP,
-            initialAp: 10,
-            initialCharges: SPELL_DATA[2].maxCharges,
-            turn: 1,
-            enemyConfig: [
-                { type: 'random', distance: [4], mode: 'manhattan' }
-            ]
-        };
+            switch (arrangement) {
+                case 'scattered':
+                    for (let i = 0; i < enemyCount; i++) {
+                        enemyConfig.push({ type: 'random', distance: [2, 3, 4], mode: 'manhattan' });
+                    }
+                    break;
+                case 'diagonal':
+                    for (let i = 0; i < enemyCount; i++) {
+                        enemyConfig.push({ type: 'random', distance: [1], mode: 'diagonal' });
+                    }
+                    break;
+                case 'aligned':
+                    enemyConfig.push({ type: 'random', distance: [1], mode: 'diagonal' });
+                    for (let i = 2; i <= enemyCount; i++) {
+                        enemyConfig.push({ type: 'aligned_diagonal', distance: [i], mode: 'diagonal' });
+                    }
+                    break;
+                case 'chained':
+                    enemyConfig.push({ type: 'random', distance: [1, 2], mode: 'manhattan' });
+                    for (let i = 1; i < enemyCount; i++) {
+                        enemyConfig.push({ type: 'adjacent_to_prev' });
+                    }
+                    break;
+            }
 
-        // 2 enemy Scenarios (2-X)
-        const SCENARIO_2_1_DATA = {
-            id: '2-1',
-            heroPosition: { x: 5, y: 5 },
-            initialHp: BASE_HP,
-            initialAp: 10,
-            initialCharges: SPELL_DATA[2].maxCharges,
-            turn: 1,
-            // 2 enemies, spawned randomly on any immediate diagonals (+/-1, +/-1)
-            enemyConfig: [
-                { type: 'random', distance: [1], mode: 'diagonal' },
-                { type: 'random', distance: [1], mode: 'diagonal' }
-            ]
-        };
+            return {
+                id: `${enemyCount}-${arrangement}`,
+                heroPosition,
+                initialHp: BASE_HP,
+                initialAp: 10,
+                initialCharges: SPELL_DATA[2].maxCharges,
+                turn: 1,
+                enemyConfig
+            };
+        }
 
-        const SCENARIO_2_2_DATA = {
-            id: '2-2',
-            heroPosition: { x: 5, y: 5 },
-            initialHp: BASE_HP,
-            initialAp: 10,
-            initialCharges: SPELL_DATA[2].maxCharges,
-            turn: 1,
-            // E1: anywhere 1 or 2 squares away (Manhattan distance).
-            // E2: adjacent to E1.
-            enemyConfig: [
-                { type: 'random', distance: [1, 2], mode: 'manhattan' },
-                { type: 'adjacent_to_prev' }
-            ]
-        };
-
-        const SCENARIO_2_3_DATA = {
-            id: '2-3',
-            heroPosition: { x: 5, y: 5 },
-            initialHp: BASE_HP,
-            initialAp: 10,
-            initialCharges: SPELL_DATA[2].maxCharges,
-            turn: 1,
-            // 2 enemies aligned on the same diagonal (1st and 2nd diagonals from the player)
-            enemyConfig: [
-                { type: 'random', distance: [1], mode: 'diagonal' },
-                { type: 'aligned_diagonal', distance: [2], mode: 'diagonal' }
-            ]
-        };
-
-        // 3 enemy scenarios (3-x_)
-        const SCENARIO_3_1_DATA = {
-            id: '3-1',
-            heroPosition: { x: 5, y: 5 },
-            initialHp: BASE_HP,
-            initialAp: 10,
-            initialCharges: SPELL_DATA[2].maxCharges,
-            turn: 1,
-            // 3 enemies, 2 spawned randomly on any immediate diagonals (+/-1, +/-1) with one on a second diagonal.
-            enemyConfig: [
-                { type: 'random', distance: [1], mode: 'diagonal' },
-                { type: 'random', distance: [1], mode: 'diagonal' },
-                { type: 'random', distance: [2], mode: 'diagonal' }
-            ]
-        };
-
-        const SCENARIO_3_2_DATA = {
-            id: '3-2',
-            heroPosition: { x: 5, y: 5 },
-            initialHp: BASE_HP,
-            initialAp: 10,
-            initialCharges: SPELL_DATA[2].maxCharges,
-            turn: 1,
-            // E1: anywhere 1 or 2 squares away (Manhattan distance).
-            // E2: adjacent to E1.
-            // E3: adjacent to E2.
-            enemyConfig: [
-                { type: 'random', distance: [1, 2], mode: 'manhattan' },
-                { type: 'adjacent_to_prev' },
-                { type: 'adjacent_to_prev' },
-            ]
-        };
-
-        const SCENARIO_3_3_DATA = {
-            id: '3-3',
-            heroPosition: { x: 5, y: 5 },
-            initialHp: BASE_HP,
-            initialAp: 10,
-            initialCharges: SPELL_DATA[2].maxCharges,
-            turn: 1,
-            // 3 enemies aligned on the same diagonal (1st through 3rd diagonals from the player)
-            enemyConfig: [
-                { type: 'random', distance: [1], mode: 'diagonal' },
-                { type: 'aligned_diagonal', distance: [2], mode: 'diagonal' },
-                { type: 'aligned_diagonal', distance: [3], mode: 'diagonal' }
-            ]
-        };
+        function startNewGame() {
+            const count = parseInt(document.getElementById('enemy-count-select').value);
+            const arrangement = document.getElementById('arrangement-select').value;
+            resetGame(buildScenarioConfig(count, arrangement));
+        }
 
 
         // Store game state
-        const HERO_UNIT_RADIUS = 15;
+        let HERO_UNIT_RADIUS;
         let gameState = {}; 
 
         const spellButton1 = document.getElementById('spell1');
@@ -1343,7 +1349,7 @@
 
             // Check for VICTORY
             if (gameState.heroStats.hp > 0 && allEnemiesDefeated) {
-                showBanner("Success!", `Scenario completed on Turn ${gameState.turn}!`, 'win', true);
+                showBanner("Success!", "Scenario complete!", 'win', true);
                 return;
             }
             
@@ -1355,10 +1361,9 @@
             const initialEnemies = generateEnemies(scenarioData.heroPosition, scenarioData.enemyConfig);
             
             if (initialEnemies.length === 0) {
-                 console.error("No valid enemies could be spawned for this scenario.");
-                 // Fallback to scenario 1-1 if a new scenario fails to load
-                 resetGame(SCENARIO_1_1_DATA);
-                 return;
+                console.error("No valid enemies could be spawned for this scenario.");
+                startNewGame();
+                return;
             }
 
             gameState = {
@@ -1596,10 +1601,10 @@
             }
         });
 
-        // Initialize the game with Scenario 1-1
         window.onload = function() {
             setTimeout(() => {
-                resetGame(SCENARIO_1_1_DATA);
+                resizeGame();
+                startNewGame();
             }, 10);
         }
     </script>
