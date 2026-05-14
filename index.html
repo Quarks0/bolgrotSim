@@ -512,9 +512,12 @@
 
         const spellButton1 = document.getElementById('spell1');
         const spellButton2 = document.getElementById('spell2');
-        const spellButton3 = document.getElementById('spell3'); 
+        const spellButton3 = document.getElementById('spell3');
         const spell2ChargesEl = document.getElementById('spell2-charges');
         const retryButton = document.getElementById('retry-button');
+        const turnCounterEl = document.getElementById('turn-counter');
+        const hpCounterEl   = document.getElementById('hp-counter');
+        const apCounterEl   = document.getElementById('ap-counter');
 
 
         // --- Isometric Conversion Functions ---
@@ -574,6 +577,17 @@
                 for (let y = 0; y < GRID_HEIGHT; y++) {
                     if (gameState.gridStates[x][y] < GRID_STATE.LOSS_TRIGGER) {
                         gameState.gridStates[x][y] = GRID_STATE.DEFAULT;
+                    }
+                }
+            }
+        }
+
+        function clearPushbackHighlights() {
+            for (let x = 0; x < GRID_WIDTH; x++) {
+                for (let y = 0; y < GRID_HEIGHT; y++) {
+                    const s = gameState.gridStates[x][y];
+                    if (s === GRID_STATE.PUSHBACK_PREVIEW || s === GRID_STATE.CASTING_AND_PUSHBACK_PREVIEW) {
+                        gameState.gridStates[x][y] = s === GRID_STATE.CASTING_AND_PUSHBACK_PREVIEW ? GRID_STATE.CASTING : GRID_STATE.DEFAULT;
                     }
                 }
             }
@@ -879,13 +893,7 @@
             if (SPELL_DATA[gameState.spellSelected]?.type !== 'move') return;
 
             // Clear only the pushback highlights (State 3 and 4) before recalculating
-            for (let x = 0; x < GRID_WIDTH; x++) {
-                for (let y = 0; y < GRID_HEIGHT; y++) {
-                    if (gameState.gridStates[x][y] === GRID_STATE.PUSHBACK_PREVIEW || gameState.gridStates[x][y] === GRID_STATE.CASTING_AND_PUSHBACK_PREVIEW) {
-                        gameState.gridStates[x][y] = gameState.gridStates[x][y] === GRID_STATE.CASTING_AND_PUSHBACK_PREVIEW ? GRID_STATE.CASTING : GRID_STATE.DEFAULT;
-                    }
-                }
-            }
+            clearPushbackHighlights();
 
             // Highlight the 3x3 grid (1-range square) around the landing spot.
             for (let dx = -1; dx <= 1; dx++) {
@@ -911,15 +919,13 @@
         function updateDomStatus() {
             const { hp, ap, maxHp, maxAp } = gameState.heroStats;
             
-            document.getElementById('turn-counter').textContent = `Turn: ${gameState.turn}`;
-            
-            const hpElement = document.getElementById('hp-counter');
-            hpElement.textContent = `HP: ${hp}/${maxHp}`;
-            hpElement.className = hp <= 5 ? 'text-red-500 font-bold' : 'text-green-400';
+            turnCounterEl.textContent = `Turn: ${gameState.turn}`;
 
-            const apElement = document.getElementById('ap-counter');
-            apElement.textContent = `AP: ${ap}/${maxAp}`;
-            apElement.className = ap < SPELL_DATA[2].costAP ? 'text-gray-400' : 'text-yellow-300';
+            hpCounterEl.textContent = `HP: ${hp}/${maxHp}`;
+            hpCounterEl.className = hp <= 5 ? 'text-red-500 font-bold' : 'text-green-400';
+
+            apCounterEl.textContent = `AP: ${ap}/${maxAp}`;
+            apCounterEl.className = ap < SPELL_DATA[2].costAP ? 'text-gray-400' : 'text-yellow-300';
 
             spell2ChargesEl.textContent = gameState.spellCharges[2];
             
@@ -1432,8 +1438,7 @@
                 currentScenario: scenarioData 
             };
             
-            hideBanner(); 
-            resetGridStates(); 
+            hideBanner();
             CANVAS.style.cursor = 'default';
             
             document.getElementById('retry-button').onclick = () => resetGame(scenarioData);
@@ -1555,36 +1560,9 @@
 
         function render() {
             CTX.clearRect(0, 0, CANVAS_WIDTH, CANVAS_HEIGHT);
-            
-            const selectedSpell = gameState.spellSelected !== 0 ? SPELL_DATA[gameState.spellSelected] : null;
-
-            // Only update grid states for spell preview if the player is ALIVE (HP > 0)
-            if (gameState.heroStats.hp > 0 && selectedSpell) { 
-                highlightCastRange(gameState.heroPosition.x, gameState.heroPosition.y, selectedSpell);
-                
-                if (selectedSpell.type === 'move' && gameState.hoveredTile && CASTABLE_STATES.includes(gameState.gridStates[gameState.hoveredTile.x][gameState.hoveredTile.y])) {
-                    updatePushbackHighlight(gameState.hoveredTile.x, gameState.hoveredTile.y);
-                } else {
-                    // Clear temporary pushback highlights if not hovering over a castable tile
-                    for (let x = 0; x < GRID_WIDTH; x++) {
-                        for (let y = 0; y < GRID_HEIGHT; y++) {
-                            // Only clear states 3 and 4, resetting 4 to 1 if it was a castable tile
-                            if (gameState.gridStates[x][y] === GRID_STATE.PUSHBACK_PREVIEW || gameState.gridStates[x][y] === GRID_STATE.CASTING_AND_PUSHBACK_PREVIEW) {
-                                gameState.gridStates[x][y] = gameState.gridStates[x][y] === GRID_STATE.CASTING_AND_PUSHBACK_PREVIEW ? GRID_STATE.CASTING : GRID_STATE.DEFAULT;
-                            }
-                        }
-                    }
-                }
-            } else if (gameState.heroStats.hp > 0 && !selectedSpell) {
-                // If HP > 0 but no spell selected, ensure only the background states (0) or permanent loss states (5, 6) remain
-                clearTemporaryHighlights();
-            }
-            
             drawGrid();
             drawUnits();
             updateDomStatus();
-            
-            // Sync UI active state
             [spellButton1, spellButton2, spellButton3].forEach((btn, index) => {
                 btn.classList.toggle('spell-icon-active', gameState.spellSelected === index + 1);
             });
@@ -1592,29 +1570,33 @@
 
         // --- Interaction Handlers ---
 
+        let renderScheduled = false;
+
         function handleMouseMove(event) {
             if (gameState.heroStats.hp <= 0) return;
             if (gameState.spellSelected === 0) return;
 
             const rect = CANVAS.getBoundingClientRect();
-            const clickX = event.clientX - rect.left;
-            const clickY = event.clientY - rect.top;
-
-            const isoCoords = screenToIso(clickX, clickY);
+            const isoCoords = screenToIso(event.clientX - rect.left, event.clientY - rect.top);
+            const spell = SPELL_DATA[gameState.spellSelected];
 
             if (isoCoords && CASTABLE_STATES.includes(gameState.gridStates[isoCoords.x][isoCoords.y])) {
                 gameState.hoveredTile = isoCoords;
-                CANVAS.style.cursor = 'pointer'; 
+                CANVAS.style.cursor = 'pointer';
+                if (spell.type === 'move') updatePushbackHighlight(isoCoords.x, isoCoords.y);
             } else {
                 gameState.hoveredTile = null;
-                CANVAS.style.cursor = 'crosshair'; 
+                CANVAS.style.cursor = 'crosshair';
+                clearPushbackHighlights();
             }
-            render();
+
+            if (!renderScheduled) {
+                renderScheduled = true;
+                requestAnimationFrame(() => { renderScheduled = false; render(); });
+            }
         }
 
-        const debouncedMouseMove = debounce(handleMouseMove, 50);
-
-        CANVAS.addEventListener('mousemove', debouncedMouseMove);
+        CANVAS.addEventListener('mousemove', handleMouseMove);
         
         CANVAS.addEventListener('mouseup', (event) => {
             if (gameState.heroStats.hp <= 0) return;
@@ -1649,12 +1631,7 @@
             }
         });
 
-        window.onload = function() {
-            setTimeout(() => {
-                resizeGame();
-                startNewGame();
-            }, 10);
-        }
+        window.onload = () => requestAnimationFrame(() => { resizeGame(); startNewGame(); });
     </script>
 </body>
 </html>
